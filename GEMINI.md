@@ -65,3 +65,4 @@ cargo test --features server --test sessions
 - **Database:** Migrations are applied automatically on server startup. Use `sqlx` for queries.
 - **Storage:** Local storage is the default. The `StorageBackend` trait in `src/server/storage/mod.rs` allows for future S3-compatible backends.
 - **Clean Code:** Adhere to the existing structure where UI logic is separated from server-side infrastructure. Components should remain lightweight, delegating heavy lifting to server functions or JS helpers.
+- **Source Control:** NEVER stage, commit, or push changes unless explicitly instructed by the user in the current turn.

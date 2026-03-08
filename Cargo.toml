@@ -30,7 +30,7 @@ getrandom = { version = "0.3", features = ["wasm_js"] }
 tokio = { version = "1", features = ["full"] }
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls", "chrono", "uuid", "migrate"] }
 axum = { version = "0.8", features = ["multipart", "ws"] }
-tower-http = { version = "0.5", features = ["cors"] }
+tower-http = { version = "0.5", features = ["cors", "limit"] }
 bytes = "1"
 futures-util = { version = "0.3", features = ["sink"] }
 async-trait = "0.1"

@@ -51,7 +51,7 @@ fn main() {
 async fn run_server() {
     use std::sync::Arc;
 
-    use axum::{routing, Router};
+    use axum::{extract::DefaultBodyLimit, routing, Router};
     use dioxus::prelude::{DioxusRouterExt, ServeConfig};
     use server::{
         cleanup,
@@ -95,18 +95,19 @@ async fn run_server() {
 
     // Custom API routes (state fully resolved → Router<()>)
     let api_router: Router = Router::new()
-        .route("/api/upload", routing::post(upload_handler).with_state(state.clone()))
-        .route("/f/{file_id}", routing::get(download_handler).with_state(state.clone()))
-        .route("/share/{token}", routing::get(share_link_handler).with_state(state))
+        .route("/api/upload", routing::post(upload_handler))
+        .route("/f/{file_id}", routing::get(download_handler))
+        .route("/share/{token}", routing::get(share_link_handler))
+        .with_state(state.clone())
         .route(
             "/ws/signal/{session_id}",
             routing::get(signaling_ws_handler).with_state(registry),
         )
-        .layer(CorsLayer::permissive());
+        .layer(CorsLayer::permissive())
+        .layer(DefaultBodyLimit::disable());
 
     // Dioxus fullstack router: serves assets, server functions, and SSR fallback.
-    // Router::new() is inferred as Router<FullstackState> via the trait impl;
-    // serve_dioxus_application resolves it to Router<()>, then we merge our API routes.
+    // We merge the API router FIRST so those routes take priority.
     let router = Router::new()
         .serve_dioxus_application(ServeConfig::new(), App)
         .merge(api_router);

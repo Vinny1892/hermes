@@ -178,7 +178,7 @@ window.startP2pSender = async function(signalUrl) {
 }
 
 /**
- * Called by Rust when a file is selected.
+ * Called by Rust when a file is selected via standard input.
  */
 window.startP2pTransfer = function() {
   const input = document.getElementById("p2p-file-input");
@@ -189,6 +189,19 @@ window.startP2pTransfer = function() {
     sendFile(currentChannel, file);
   } else {
     // If channel isn't open yet, startP2pSender's onopen will catch it.
+    setStatus("Waiting for receiver to connect…");
+  }
+}
+
+/**
+ * Called by Rust when a file is dropped via Drag & Drop.
+ */
+window.startP2pTransferWithFile = function(file) {
+  if (!file) return;
+
+  if (currentChannel && currentChannel.readyState === "open") {
+    sendFile(currentChannel, file);
+  } else {
     setStatus("Waiting for receiver to connect…");
   }
 }

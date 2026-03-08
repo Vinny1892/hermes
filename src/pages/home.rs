@@ -13,16 +13,7 @@ use crate::{
     models::UploadResponse,
 };
 
-/// Transfer mode chosen by the user.
-#[derive(Clone, PartialEq)]
-enum TransferMode {
-    /// Store on the server; allow multiple downloads for 7 days.
-    ServerUpload,
-    /// Direct P2P via WebRTC DataChannel.
-    P2p,
-}
-
-/// Home page — file upload and link generation.
+/// Home page component.
 #[component]
 pub fn Home() -> Element {
     let mut mode = use_signal(|| TransferMode::ServerUpload);
@@ -37,26 +28,24 @@ pub fn Home() -> Element {
     };
 
     let on_generate_link = move |_| {
-        let upload_result = upload_result.clone();
-        async move {
-            if let Some(ref resp) = *upload_result.read() {
-                let file_id = resp.file_id.to_string();
-                match generate_share_link(file_id).await {
-                    Ok(link) => share_url.set(Some(link.share_url)),
+        if let Some(ref resp) = *upload_result.read() {
+            let file_id = resp.file_id.clone();
+            spawn(async move {
+                match generate_share_link(file_id.to_string()).await {
+                    Ok(res) => share_url.set(Some(res.share_url)),
                     Err(e) => share_error.set(Some(e.to_string())),
                 }
-            }
+            });
         }
     };
 
     rsx! {
         div { class: "page home-page",
             h1 { "hermes" }
-            p { class: "tagline", "Fast file sharing between friends" }
+            p { class: "tagline", "Share files securely via server or P2P." }
 
-            // Mode selector
             div { class: "mode-selector",
-                label {
+                label { 
                     class: if *mode.read() == TransferMode::ServerUpload { "mode-btn active" } else { "mode-btn" },
                     input {
                         r#type: "radio",
@@ -64,17 +53,17 @@ pub fn Home() -> Element {
                         checked: *mode.read() == TransferMode::ServerUpload,
                         onchange: move |_| mode.set(TransferMode::ServerUpload),
                     }
-                    "Save on server"
+                    span { "Server Upload" }
                 }
-                label {
-                    class: if *mode.read() == TransferMode::P2p { "mode-btn active" } else { "mode-btn" },
+                label { 
+                    class: if *mode.read() == TransferMode::P2P { "mode-btn active" } else { "mode-btn" },
                     input {
                         r#type: "radio",
                         name: "mode",
-                        checked: *mode.read() == TransferMode::P2p,
-                        onchange: move |_| mode.set(TransferMode::P2p),
+                        checked: *mode.read() == TransferMode::P2P,
+                        onchange: move |_| mode.set(TransferMode::P2P),
                     }
-                    "Direct P2P transfer"
+                    span { "Direct P2P" }
                 }
             }
 
@@ -82,24 +71,34 @@ pub fn Home() -> Element {
                 FileUploader { on_uploaded }
 
                 if let Some(ref resp) = *upload_result.read() {
-                    div { class: "upload-result",
-                        p {
-                            "Uploaded! Direct link: "
-                            a { href: "{resp.download_url}", "{resp.download_url}" }
-                        }
-                        button {
-                            class: "btn",
-                            onclick: on_generate_link,
-                            "Generate 10-min share link"
-                        }
-                        if let Some(ref url) = *share_url.read() {
-                            div { class: "share-link",
-                                p { "Share this link (expires in 10 min):" }
-                                code { "{url}" }
+                    div { class: "upload-result mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500",
+                        div { class: "flex flex-col gap-4 bg-slate-900/40 p-6 rounded-2xl border border-white/5 backdrop-blur-sm shadow-xl",
+                            div {
+                                p { class: "text-sm text-gray-400 mb-1 font-medium", "File uploaded successfully!" }
+                                ShareLinkWidget { 
+                                    label: "Direct download link:", 
+                                    url: resp.download_url.clone() 
+                                }
                             }
-                        }
-                        if let Some(ref err) = *share_error.read() {
-                            p { class: "error", "{err}" }
+                            
+                            div { class: "border-t border-white/5 pt-4 flex flex-col gap-3",
+                                if share_url.read().is_none() {
+                                    button {
+                                        class: "btn w-full bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/20 py-2 rounded-xl transition-all active:scale-[0.98]",
+                                        onclick: on_generate_link,
+                                        "Generate 10-min share link"
+                                    }
+                                }
+                                if let Some(ref url) = *share_url.read() {
+                                    ShareLinkWidget { 
+                                        label: "Temporary share link (expires in 10 min):", 
+                                        url: url.clone() 
+                                    }
+                                }
+                                if let Some(ref err) = *share_error.read() {
+                                    p { class: "text-red-400 text-xs mt-1", "{err}" }
+                                }
+                            }
                         }
                     }
                 }
@@ -110,83 +109,132 @@ pub fn Home() -> Element {
     }
 }
 
-// ── P2P panel ─────────────────────────────────────────────────────────────────
+// ── Shared UI Components ──────────────────────────────────────────────────────
 
-/// Panel shown when the user selects P2P mode.
+#[derive(Props, Clone, PartialEq)]
+struct ShareLinkWidgetProps {
+    label: String,
+    url: String,
+}
+
 #[component]
-fn P2pPanel() -> Element {
-    let mut session_info = use_signal(|| Option::<(String, uuid::Uuid)>::None);
-    let mut error = use_signal(|| Option::<String>::None);
+fn ShareLinkWidget(props: ShareLinkWidgetProps) -> Element {
+    let mut copied = use_signal(|| false);
+    let mut full_url = use_signal(|| props.url.clone());
+    let url_prop = props.url.clone();
 
-    let on_start = move |_| async move {
-        match create_p2p_session().await {
-            Ok(resp) => session_info.set(Some((resp.signal_url, resp.session_id))),
-            Err(e) => error.set(Some(e.to_string())),
+    use_effect(move || {
+        let url = url_prop.clone();
+        if url.starts_with('/') {
+            spawn(async move {
+                let mut ev = eval(r#"dioxus.send(window.location.origin);"#);
+                if let Ok(origin) = ev.recv::<String>().await {
+                    full_url.set(format!("{}{}", origin, url));
+                }
+            });
+        } else {
+            full_url.set(url);
         }
-    };
+    });
+
+    let current_url = full_url.read().clone();
 
     rsx! {
-        div { class: "p2p-panel",
-            if session_info.read().is_none() {
-                button { class: "btn", onclick: on_start, "Start P2P transfer" }
-            }
-            if let Some((ref url, ref id)) = *session_info.read() {
-                WebRtcWidget { signal_url: url.clone(), session_id: id.clone() }
-            }
-            if let Some(ref e) = *error.read() {
-                p { class: "error", "{e}" }
+        div { class: "share-link-widget",
+            p { class: "text-[11px] uppercase tracking-wider text-gray-500 mb-1.5 ml-1 font-bold", "{props.label}" }
+            div { class: "flex items-center gap-3 bg-slate-900/80 p-3 rounded-xl border border-white/10 shadow-inner group",
+                code { class: "flex-1 font-mono text-xs truncate text-blue-300/90 selection:bg-blue-500/30", "{current_url}" }
+                button {
+                    class: "p-1.5 hover:bg-white/5 rounded-lg transition-all active:scale-90 relative",
+                    title: "Copy to clipboard",
+                    onclick: move |_| {
+                        let to_copy = current_url.clone();
+                        copied.set(true);
+                        spawn(async move {
+                            let _ = eval(&format!(r#"
+                                navigator.clipboard.writeText("{to_copy}").then(() => {{
+                                    dioxus.send("copied");
+                                }}).catch(err => {{
+                                    console.error("Failed to copy:", err);
+                                }});
+                            "#));
+                            let mut _ev = eval(r#"await new Promise(r => setTimeout(r, 2000)); dioxus.send(true);"#);
+                            let _ = _ev.recv::<bool>().await;
+                            copied.set(false);
+                        });
+                    },
+                    if *copied.read() {
+                        svg {
+                            class: "w-4 h-4 text-green-400 animate-in zoom-in-50 duration-300",
+                            fill: "none",
+                            stroke: "currentColor",
+                            view_box: "0 0 24 24",
+                            path {
+                                stroke_linecap: "round",
+                                stroke_linejoin: "round",
+                                stroke_width: "3",
+                                d: "M5 13l4 4L19 7"
+                            }
+                        }
+                    } else {
+                        svg {
+                            class: "w-4 h-4 text-gray-500 group-hover:text-blue-400 transition-colors",
+                            fill: "none",
+                            stroke: "currentColor",
+                            view_box: "0 0 24 24",
+                            path {
+                                stroke_linecap: "round",
+                                stroke_linejoin: "round",
+                                stroke_width: "2",
+                                d: "M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 }
 
-// ── WebRTC widget ─────────────────────────────────────────────────────────────
+// ── P2P panel ─────────────────────────────────────────────────────────────────
 
-#[derive(Props, Clone, PartialEq)]
-struct WebRtcWidgetProps {
-    signal_url: String,
-    session_id: uuid::Uuid,
-}
-
-/// Renders the P2P send widget and boots the WebRTC JS.
 #[component]
-fn WebRtcWidget(props: WebRtcWidgetProps) -> Element {
-    let signal_url = props.signal_url.clone();
-    let session_id = props.session_id.clone();
-    let mut file_selected = use_signal(|| false);
-    // Only show the receive link after the sender's WebSocket is open.
-    // This prevents the race condition where the receiver connects first
-    // and accidentally takes slot 'a' (the sender's slot) in the registry.
-    #[allow(unused_mut)] // mutated only on wasm32 inside the cfg block
-    let mut sender_connected = use_signal(|| false);
+fn P2pPanel() -> Element {
+    let mut session_id = use_signal(|| Option::<String>::None);
+    let mut error = use_signal(|| Option::<String>::None);
 
     use_effect(move || {
-        let url = signal_url.clone();
-        #[cfg(target_arch = "wasm32")]
-        {
-            // Await startP2pSender so we know the WebSocket is open before
-            // revealing the receive link.
+        if session_id.read().is_none() {
             spawn(async move {
-                let mut ev = eval(&format!(r#"
-                    (async () => {{
-                        // Wait for webrtc.js to load before calling startP2pSender.
-                        while (typeof window.startP2pSender !== 'function') {{
-                            await new Promise(r => setTimeout(r, 50));
-                        }}
-                        await window.startP2pSender({url:?});
-                        dioxus.send(true);
-                    }})();
-                "#));
-                if ev.recv::<bool>().await.is_ok() {
-                    sender_connected.set(true);
+                match create_p2p_session().await {
+                    Ok(res) => session_id.set(Some(res.session_id.to_string())),
+                    Err(e) => error.set(Some(e.to_string())),
                 }
             });
         }
-        #[cfg(not(target_arch = "wasm32"))]
-        let _ = url;
     });
 
+    rsx! {
+        div { class: "p2p-panel",
+            h2 { "P2P Transfer" }
+            if let Some(ref err) = *error.read() {
+                p { class: "error", "Signaling error: {err}" }
+            } else if let Some(ref id) = *session_id.read() {
+                WebRtcWidget { session_id: id.clone() }
+            } else {
+                p { "Creating session..." }
+            }
+        }
+    }
+}
+
+#[component]
+fn WebRtcWidget(session_id: String) -> Element {
+    let mut sender_connected = use_signal(|| false);
+    let mut file_selected = use_signal(|| false);
     let mut full_receive_url = use_signal(|| "".to_string());
+    let mut is_dragging = use_signal(|| false);
+
     let receive_url = Route::Receive { session_id: session_id.to_string() }.to_string();
 
     use_effect(move || {
@@ -201,75 +249,78 @@ fn WebRtcWidget(props: WebRtcWidgetProps) -> Element {
 
     let full_receive_url_clone = (*full_receive_url.read()).clone();
 
-    let mut copied = use_signal(|| false);
+    use_effect(move || {
+        let sid = session_id.clone();
+        spawn(async move {
+            let mut ev = eval(&format!("startP2pSender('{}')", sid));
+            while let Ok(msg) = ev.recv::<String>().await {
+                if msg == "connected" {
+                    sender_connected.set(true);
+                }
+            }
+        });
+    });
+
+    // Native Drag & Drop listener for P2P
+    use_effect(move || {
+        spawn(async move {
+            #[cfg(target_arch = "wasm32")]
+            {
+                let mut ev = eval(r#"
+                    const el = document.getElementById("drop-zone-p2p");
+                    if (!el) return;
+
+                    el.addEventListener("dragover", e => { e.preventDefault(); e.stopPropagation(); dioxus.send("dragging"); });
+                    el.addEventListener("dragleave", e => { e.preventDefault(); e.stopPropagation(); dioxus.send("left"); });
+                    el.addEventListener("drop", async e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        dioxus.send("dropped");
+                        const file = e.dataTransfer.files[0];
+                        if (file && typeof window.startP2pTransferWithFile === 'function') {
+                            window.startP2pTransferWithFile(file);
+                            dioxus.send("done");
+                        }
+                    });
+                "#);
+
+                while let Ok(msg) = ev.recv::<String>().await {
+                    match msg.as_str() {
+                        "dragging" => is_dragging.set(true),
+                        "left" => is_dragging.set(false),
+                        "dropped" => is_dragging.set(false),
+                        "done" => file_selected.set(true),
+                        _ => {}
+                    }
+                }
+            }
+        });
+    });
 
     rsx! {
         div { class: "webrtc-widget mt-6",
             if *sender_connected.read() {
                 div { class: "p2p-share-container animate-in fade-in slide-in-from-bottom-4 duration-500",
-                    p { class: "text-sm text-gray-400 mb-2 font-medium", "Share this link with your friend:" }
-                    div { class: "flex items-center gap-3 bg-slate-900/60 p-4 rounded-xl border border-white/5 backdrop-blur-md shadow-2xl",
-                        code { class: "flex-1 font-mono text-sm truncate text-blue-300 selection:bg-blue-500/30", "{full_receive_url}" }
-                        button {
-                            class: "p-2 hover:bg-white/10 rounded-lg transition-all active:scale-95 group relative overflow-hidden",
-                            title: "Copy to clipboard",
-                            onclick: move |_| {
-                                let url = full_receive_url_clone.clone();
-                                spawn(async move {
-                                    let mut _ev = eval(&format!(r#"
-                                        navigator.clipboard.writeText("{url}").then(() => {{
-                                            dioxus.send("copied");
-                                        }}).catch(err => {{
-                                            console.error("Failed to copy:", err);
-                                        }});
-                                    "#));
-                                    copied.set(true);
-                                    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-                                    copied.set(false);
-                                });
-                            },
-                            if *copied.read() {
-                                svg {
-                                    class: "w-5 h-5 text-green-400 animate-in zoom-in-50 duration-300",
-                                    fill: "none",
-                                    stroke: "currentColor",
-                                    view_box: "0 0 24 24",
-                                    path {
-                                        stroke_linecap: "round",
-                                        stroke_linejoin: "round",
-                                        stroke_width: "2.5",
-                                        d: "M5 13l4 4L19 7"
-                                    }
-                                }
-                            } else {
-                                svg {
-                                    class: "w-5 h-5 text-gray-400 group-hover:text-blue-400 transition-colors",
-                                    fill: "none",
-                                    stroke: "currentColor",
-                                    view_box: "0 0 24 24",
-                                    path {
-                                        stroke_linecap: "round",
-                                        stroke_linejoin: "round",
-                                        stroke_width: "2",
-                                        d: "M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                    }
-                                }
-                            }
-                        }
+                    ShareLinkWidget {
+                        label: "Share this link with your friend:",
+                        url: full_receive_url_clone
                     }
                 }
-                p { class: "p2p-instructions", "Waiting for receiver... once they connect, select a file below." }
+                p { class: "p2p-instructions text-gray-400 text-xs mt-4 italic", "Waiting for receiver... once they connect, select a file below." }
             } else {
                 p { class: "p2p-status-connecting", "Connecting to signaling server…" }
             }
 
             div { class: "uploader p2p-uploader",
-                label { class: "drop-zone",
+                label { 
+                    id: "drop-zone-p2p",
+                    class: if *is_dragging.read() { "drop-zone dragging" } else { "drop-zone" },
+                    
                     input {
                         id: "p2p-file-input",
                         r#type: "file",
                         style: "display:none",
-                        onchange: move |_| {
+                        onchange: move |_e| {
                             file_selected.set(true);
                             #[cfg(target_arch = "wasm32")]
                             spawn(async move {
@@ -278,7 +329,7 @@ fn WebRtcWidget(props: WebRtcWidgetProps) -> Element {
                         },
                     }
                     if *file_selected.read() {
-                        span { class: "drop-zone-hint", "File selected! Starting transfer..." }
+                        span { class: "drop-zone-hint text-green-400", "File selected! Starting transfer..." }
                     } else {
                         span { class: "drop-zone-hint", "Select file to send via P2P" }
                     }
@@ -289,4 +340,10 @@ fn WebRtcWidget(props: WebRtcWidgetProps) -> Element {
             div { id: "p2p-progress", class: "p2p-progress" }
         }
     }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum TransferMode {
+    ServerUpload,
+    P2P,
 }

@@ -78,9 +78,14 @@ body {
   border: 2px dashed var(--border);
   border-radius: var(--radius);
   cursor: pointer;
-  transition: border-color 0.15s;
+  transition: all 0.2s ease;
 }
 .drop-zone:hover { border-color: var(--accent); }
+.drop-zone.dragging {
+  border-color: var(--accent);
+  background: rgba(124, 106, 247, 0.1);
+  transform: scale(1.02);
+}
 .drop-zone-hint { color: var(--text-muted); }
 
 /* Upload result */
