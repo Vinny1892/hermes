@@ -1,0 +1,58 @@
+[package]
+name = "hermes"
+version = "0.1.0"
+authors = ["Vinicius Espindola <vinnyaoe@gmail.com>"]
+edition = "2021"
+
+[lib]
+name = "hermes"
+path = "src/lib.rs"
+
+[[bin]]
+name = "hermes"
+path = "src/main.rs"
+
+[dependencies]
+dioxus = { version = "0.7.1", features = ["router", "fullstack"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde", "js"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1"
+tracing = "0.1"
+
+# WASM-only: enable the JS RNG backend required by uuid v4 in the browser
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.3", features = ["wasm_js"] }
+
+# Server-only dependencies (not compiled for WASM)
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { version = "1", features = ["full"] }
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls", "chrono", "uuid", "migrate"] }
+axum = { version = "0.8", features = ["multipart", "ws"] }
+tower-http = { version = "0.5", features = ["cors"] }
+bytes = "1"
+futures-util = { version = "0.3", features = ["sink"] }
+async-trait = "0.1"
+anyhow = "1"
+tokio-util = { version = "0.7", features = ["io"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["full"] }
+
+[features]
+default = ["web"]
+web = ["dioxus/web"]
+desktop = ["dioxus/desktop"]
+mobile = ["dioxus/mobile"]
+server = ["dioxus/server"]
+
+[[test]]
+name = "storage"
+path = "tests/storage.rs"
+
+[[test]]
+name = "sessions"
+path = "tests/sessions.rs"

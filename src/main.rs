@@ -1,0 +1,119 @@
+//! Application entry point.
+//!
+//! # Server mode
+//!
+//! Starts an Axum HTTP server on `0.0.0.0:8080` (or `$PORT`). The router
+//! exposes:
+//!
+//! * `POST /api/upload`               — multipart file upload
+//! * `GET  /f/:file_id`               — streaming file download
+//! * `GET  /share/:token`             — share-link redirect
+//! * `GET  /ws/signal/:session_id`    — WebRTC signaling WebSocket
+//!
+//! Dioxus server functions (`get_file_info`, `generate_share_link`,
+//! `create_p2p_session`) are available via the fullstack runtime on the
+//! standard server-function endpoint.
+//!
+//! A background task runs hourly to purge expired files and sessions.
+//!
+//! # Client mode (`feature = "web"`)
+//!
+//! Calls `dioxus::launch(App)` which mounts the WASM application.
+
+mod api;
+mod app;
+mod components;
+mod models;
+mod pages;
+
+#[cfg(not(target_arch = "wasm32"))]
+mod server;
+
+use app::App;
+
+fn main() {
+    #[cfg(feature = "server")]
+    {
+        tokio::runtime::Runtime::new()
+            .expect("failed to create tokio runtime")
+            .block_on(run_server());
+    }
+
+    #[cfg(not(feature = "server"))]
+    {
+        dioxus::launch(App);
+    }
+}
+
+// ── Server entry point ────────────────────────────────────────────────────────
+
+#[cfg(feature = "server")]
+async fn run_server() {
+    use std::sync::Arc;
+
+    use axum::{routing, Router};
+    use dioxus::prelude::{DioxusRouterExt, ServeConfig};
+    use server::{
+        cleanup,
+        db::{init_db, set_global_pool},
+        download::{download_handler, share_link_handler},
+        signaling::{signaling_ws_handler, SignalingRegistry},
+        storage::LocalStorage,
+        upload::{upload_handler, AppState},
+    };
+    use tower_http::cors::CorsLayer;
+
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::from_default_env()
+                .add_directive("hermes=info".parse().unwrap()),
+        )
+        .init();
+
+    let pool = init_db().await.expect("database init failed");
+    set_global_pool(pool.clone());
+
+    let storage: Arc<dyn server::storage::StorageBackend> = Arc::new(
+        LocalStorage::new(concat!(env!("CARGO_MANIFEST_DIR"), "/storage/uploads"))
+            .await
+            .expect("storage init failed"),
+    );
+
+    let state = AppState {
+        db: pool.clone(),
+        storage: storage.clone(),
+    };
+
+    let registry = SignalingRegistry::default();
+
+    tokio::spawn(cleanup::run(pool, storage));
+
+    // Custom API routes (state fully resolved → Router<()>)
+    let api_router: Router = Router::new()
+        .route("/api/upload", routing::post(upload_handler).with_state(state.clone()))
+        .route("/f/{file_id}", routing::get(download_handler).with_state(state.clone()))
+        .route("/share/{token}", routing::get(share_link_handler).with_state(state))
+        .route(
+            "/ws/signal/{session_id}",
+            routing::get(signaling_ws_handler).with_state(registry),
+        )
+        .layer(CorsLayer::permissive());
+
+    // Dioxus fullstack router: serves assets, server functions, and SSR fallback.
+    // Router::new() is inferred as Router<FullstackState> via the trait impl;
+    // serve_dioxus_application resolves it to Router<()>, then we merge our API routes.
+    let router = Router::new()
+        .serve_dioxus_application(ServeConfig::new(), App)
+        .merge(api_router);
+
+    let address = dioxus::cli_config::fullstack_address_or_localhost();
+    tracing::info!("hermes listening on http://{address}");
+
+    let listener = tokio::net::TcpListener::bind(address)
+        .await
+        .unwrap_or_else(|e| panic!("failed to bind to {address}: {e}"));
+
+    axum::serve(listener, router.into_make_service())
+        .await
+        .expect("server error");
+}
