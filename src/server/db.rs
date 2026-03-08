@@ -52,6 +52,7 @@ pub async fn init_db() -> Result<SqlitePool> {
 /// Creates an in-memory SQLite pool with migrations applied.
 ///
 /// Used by unit tests (via `#[tokio::test]`) and integration tests in `tests/`.
+#[allow(dead_code)]
 pub async fn test_pool() -> SqlitePool {
     let pool = SqlitePoolOptions::new()
         .connect("sqlite::memory:")

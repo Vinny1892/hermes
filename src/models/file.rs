@@ -4,27 +4,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Metadata for a file stored on the server.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct FileRecord {
-    /// Unique identifier for the file.
-    pub id: Uuid,
-    /// Original filename as provided by the uploader.
-    pub filename: String,
-    /// File size in bytes.
-    pub size: i64,
-    /// MIME type detected from the upload.
-    pub mime_type: String,
-    /// Storage backend: `"local"` or `"s3"`.
-    pub backend: String,
-    /// Key used to locate the file in the storage backend.
-    pub storage_key: String,
-    /// When the file was uploaded.
-    pub created_at: DateTime<Utc>,
-    /// When the file will be automatically deleted (7 days after upload).
-    pub expires_at: DateTime<Utc>,
-}
-
 /// Response returned after a successful upload.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct UploadResponse {

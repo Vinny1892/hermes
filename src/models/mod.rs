@@ -7,5 +7,7 @@
 pub mod file;
 pub mod session;
 
-pub use file::{FileInfo, FileRecord, ShareLinkResponse, UploadResponse};
-pub use session::{CreateSessionResponse, P2pSession, SessionState, SignalMessage};
+pub use file::{FileInfo, ShareLinkResponse, UploadResponse};
+pub use session::CreateSessionResponse;
+#[cfg(feature = "server")]
+pub use session::{P2pSession, SessionState, SignalMessage};

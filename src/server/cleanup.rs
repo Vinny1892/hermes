@@ -8,7 +8,6 @@
 //! Start this task once at server startup:
 //!
 //! ```rust,no_run
-//! # #[cfg(feature = "server")]
 //! # #[tokio::main] async fn main() {
 //! # use std::sync::Arc;
 //! # use hermes::server::{cleanup, db, storage::LocalStorage};

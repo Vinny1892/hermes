@@ -46,13 +46,42 @@ function setProgress(pct) {
   if (el) el.textContent = pct >= 0 ? `${pct}%` : "";
 }
 
+/**
+ * Safely parses a JSON string. Returns null and sets an error status on failure.
+ * @param {string} raw
+ * @returns {object|null}
+ */
+function parseMessage(raw) {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    console.error("P2P: failed to parse message");
+    return null;
+  }
+}
+
+/**
+ * Encodes an ArrayBuffer to base64 without using spread (avoids stack overflow
+ * on large buffers with String.fromCharCode(...array)).
+ * @param {ArrayBuffer} buf
+ * @returns {string}
+ */
+function bufferToBase64(buf) {
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 function openSignalingSocket(url) {
   // Ensure the protocol is correct (Axum 0.8 might still send http:// if not careful)
   const wsUrl = url.replace(/^http/, "ws");
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(wsUrl);
     ws.onopen = () => resolve(ws);
-    ws.onerror = (e) => reject(new Error("WebSocket error: " + e));
+    ws.onerror = () => reject(new Error("WebSocket connection failed"));
     setTimeout(() => reject(new Error("WebSocket connection timeout")), 10_000);
   });
 }
@@ -67,13 +96,21 @@ function openSignalingSocket(url) {
 window.startP2pSender = async function(signalUrl) {
   currentChannel = null;
   setStatus("Connecting to signaling server…");
-  console.log("P2P Sender: connecting to", signalUrl);
+
+  // Rewrite the URL to use the current page's host so the WebSocket
+  // connects through the same origin (handles dx serve proxying).
+  try {
+    const parsed = new URL(signalUrl);
+    parsed.host = location.host;
+    parsed.protocol = location.protocol === "https:" ? "wss:" : "ws:";
+    signalUrl = parsed.toString();
+  } catch (_) { /* keep original URL if parsing fails */ }
 
   let ws;
   try {
     ws = await openSignalingSocket(signalUrl);
   } catch (e) {
-    console.error("P2P Sender: socket error", e);
+    console.error("P2P Sender: socket error", e.message);
     setStatus("Error: " + e.message);
     return;
   }
@@ -84,15 +121,14 @@ window.startP2pSender = async function(signalUrl) {
   // Forward local ICE candidates.
   pc.onicecandidate = ({ candidate }) => {
     if (candidate) {
-      console.log("P2P Sender: sending ICE candidate");
       ws.send(JSON.stringify({ type: "ice-candidate", candidate }));
     }
   };
 
   // Handle incoming signaling messages.
   ws.onmessage = async ({ data }) => {
-    const msg = JSON.parse(data);
-    console.log("P2P Sender: received signal", msg.type);
+    const msg = parseMessage(data);
+    if (!msg) return;
     switch (msg.type) {
       case "peer-joined":
         setStatus("Receiver joined! Creating offer…");
@@ -121,7 +157,6 @@ window.startP2pSender = async function(signalUrl) {
 
   // Attach file-sending logic once the channel is open.
   channel.onopen = () => {
-    console.log("P2P Sender: DataChannel open");
     currentChannel = channel;
     setStatus("Connected! Select a file to send.");
     // If a file was already selected before the channel opened, send it now.
@@ -132,12 +167,11 @@ window.startP2pSender = async function(signalUrl) {
   };
 
   channel.onerror = (e) => {
-    console.error("P2P Sender: DataChannel error", e);
-    setStatus("Channel error: " + e.message);
+    console.error("P2P Sender: DataChannel error", e.message);
+    setStatus("Channel error.");
     currentChannel = null;
   };
   channel.onclose = () => {
-    console.log("P2P Sender: DataChannel closed");
     setStatus("Transfer complete.");
     currentChannel = null;
   };
@@ -177,7 +211,7 @@ async function sendFile(channel, file) {
   for (let i = 0; i < totalChunks; i++) {
     const slice = file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
     const buf = await slice.arrayBuffer();
-    const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    const b64 = bufferToBase64(buf);
 
     let ackReceived = false;
     let retries = 0;
@@ -193,7 +227,8 @@ async function sendFile(channel, file) {
 
         const prev = channel.onmessage;
         channel.onmessage = ({ data }) => {
-          const msg = JSON.parse(data);
+          const msg = parseMessage(data);
+          if (!msg) { clearTimeout(timeout); channel.onmessage = prev; resolve(); return; }
           if (msg.type === "ack" && msg.index === i) {
             clearTimeout(timeout);
             channel.onmessage = prev;
@@ -228,15 +263,14 @@ async function sendFile(channel, file) {
  * @param {string} sessionId - The P2P session UUID (without the WebSocket host).
  */
 window.startP2pReceiver = async function(sessionId) {
-  const wsUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/signal/${sessionId}`;
+  const wsUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/signal/${sessionId}?role=receiver`;
   setStatus("Connecting to signaling server…");
-  console.log("P2P Receiver: connecting to", wsUrl);
 
   let ws;
   try {
     ws = await openSignalingSocket(wsUrl);
   } catch (e) {
-    console.error("P2P Receiver: socket error", e);
+    console.error("P2P Receiver: socket error", e.message);
     setStatus("Error: " + e.message);
     return;
   }
@@ -245,20 +279,18 @@ window.startP2pReceiver = async function(sessionId) {
 
   pc.onicecandidate = ({ candidate }) => {
     if (candidate) {
-      console.log("P2P Receiver: sending ICE candidate");
       ws.send(JSON.stringify({ type: "ice-candidate", candidate }));
     }
   };
 
   pc.ondatachannel = ({ channel }) => {
-    console.log("P2P Receiver: DataChannel received");
     setStatus("Connected! Waiting for file…");
     receiveFile(channel);
   };
 
   ws.onmessage = async ({ data }) => {
-    const msg = JSON.parse(data);
-    console.log("P2P Receiver: received signal", msg.type);
+    const msg = parseMessage(data);
+    if (!msg) return;
     switch (msg.type) {
       case "offer":
         setStatus("Sender found! Preparing connection…");
@@ -275,9 +307,6 @@ window.startP2pReceiver = async function(sessionId) {
       case "bye":
         setStatus("Sender disconnected.");
         pc.close();
-        break;
-      default:
-        console.warn("P2P Receiver: ignored signal", msg.type);
         break;
     }
   };
@@ -296,11 +325,12 @@ function receiveFile(channel) {
   const chunks = [];
 
   channel.onmessage = ({ data }) => {
-    const msg = JSON.parse(data);
+    const msg = parseMessage(data);
+    if (!msg) return;
     switch (msg.type) {
       case "file-start":
         meta = msg;
-        setStatus(`Receiving ${msg.name}…`);
+        setStatus(`Receiving file…`);
         break;
 
       case "chunk": {
@@ -321,7 +351,13 @@ function receiveFile(channel) {
         const url = URL.createObjectURL(blob);
         const el = document.getElementById("p2p-download");
         if (el) {
-          el.innerHTML = `<a href="${url}" download="${meta?.name ?? "file"}" class="btn">Save file</a>`;
+          // Use createElement to avoid XSS via peer-supplied filename.
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = meta?.name ?? "file";
+          a.className = "btn";
+          a.textContent = "Save file";
+          el.replaceChildren(a);
         }
         setStatus("File received successfully.");
         setProgress(-1);

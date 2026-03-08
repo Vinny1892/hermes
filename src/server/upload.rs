@@ -129,6 +129,7 @@ pub(crate) async fn persist_upload(
 ///
 /// Used by unit tests and integration tests that need a pre-existing file in
 /// the database without going through the full upload handler.
+#[allow(dead_code)]
 pub async fn insert_test_file(
     pool: &SqlitePool,
     id: &str,

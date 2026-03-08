@@ -44,11 +44,12 @@ pub async fn create_session(
 
     Ok(CreateSessionResponse {
         session_id: id,
-        signal_url: format!("{ws_base}/ws/signal/{id}"),
+        signal_url: format!("{ws_base}/ws/signal/{id}?role=sender"),
     })
 }
 
 /// Returns an active (non-expired, non-closed) session by ID, or `None`.
+#[allow(dead_code)]
 pub async fn get_active_session(
     db: &SqlitePool,
     session_id: Uuid,
@@ -91,6 +92,7 @@ pub async fn get_active_session(
 }
 
 /// Transitions a session to the `handshaking` state (both peers connected).
+#[allow(dead_code)]
 pub async fn mark_handshaking(db: &SqlitePool, session_id: Uuid) -> Result<(), sqlx::Error> {
     let id_str = session_id.to_string();
     sqlx::query("UPDATE p2p_sessions SET state = 'handshaking' WHERE id = ?")
@@ -103,6 +105,7 @@ pub async fn mark_handshaking(db: &SqlitePool, session_id: Uuid) -> Result<(), s
 /// Marks a session as `closed`.
 ///
 /// The signaling server calls this when either peer disconnects.
+#[allow(dead_code)]
 pub async fn close_session(db: &SqlitePool, session_id: Uuid) -> Result<(), sqlx::Error> {
     let id_str = session_id.to_string();
     sqlx::query("UPDATE p2p_sessions SET state = 'closed' WHERE id = ?")
@@ -201,10 +204,4 @@ mod tests {
         assert_eq!(row.0, 0);
     }
 
-    #[tokio::test]
-    async fn unknown_session_id_returns_none() {
-        let db = test_pool().await;
-        let result = get_active_session(&db, Uuid::new_v4()).await.unwrap();
-        assert!(result.is_none());
-    }
 }

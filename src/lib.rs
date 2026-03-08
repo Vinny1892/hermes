@@ -9,5 +9,5 @@ pub mod components;
 pub mod models;
 pub mod pages;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "server"))]
 pub mod server;

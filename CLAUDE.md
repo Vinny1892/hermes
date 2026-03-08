@@ -130,9 +130,12 @@ For tests: `server::db::test_pool()` creates an in-memory DB with all migrations
 
 ## Environment Variables
 
+Configurable via `.env` file (loaded by `dotenvy`) or shell env vars. Shell vars take precedence. When using `dx serve`, HOST/PORT are managed by the Dioxus CLI.
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_URL` | `sqlite:hermes.db` | SQLite file path |
-| `PORT` | `8080` | HTTP listen port |
-| `BASE_URL` | `http://localhost:8080` | Used to build WebSocket URLs in P2P sessions |
+| `HOST` | `0.0.0.0` | Bind address (production only; `dx serve` overrides) |
+| `PORT` | `8080` | Listen port (production only; `dx serve` overrides) |
+| `BASE_URL` | `http://localhost:$PORT` | Used to build WebSocket URLs in P2P sessions |
 | `RUST_LOG` | — | Log filter (e.g. `hermes=debug`) |

@@ -7,6 +7,7 @@ use uuid::Uuid;
 /// Current state of a WebRTC signaling session.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
+#[allow(dead_code)]
 pub enum SessionState {
     /// Waiting for the second peer to join.
     Waiting,
@@ -20,6 +21,7 @@ pub enum SessionState {
 
 /// A P2P signaling session record.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[allow(dead_code)]
 pub struct P2pSession {
     /// Session ID shared via the invite link.
     pub id: Uuid,
@@ -55,6 +57,7 @@ pub struct CreateSessionResponse {
 /// closes the channel.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "kebab-case")]
+#[allow(dead_code)]
 pub enum SignalMessage {
     /// Server notifies Peer A that Peer B has connected.
     PeerJoined,

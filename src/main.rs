@@ -26,7 +26,7 @@ mod components;
 mod models;
 mod pages;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "server"))]
 mod server;
 
 use app::App;
@@ -62,6 +62,11 @@ async fn run_server() {
         upload::{upload_handler, AppState},
     };
     use tower_http::cors::CorsLayer;
+
+    // Load .env file if present. Must run BEFORE tracing_subscriber so
+    // RUST_LOG from .env is picked up. dotenvy never overwrites existing
+    // env vars, so `dx serve`'s PORT/IP take precedence automatically.
+    let _ = dotenvy::dotenv();
 
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -106,6 +111,14 @@ async fn run_server() {
         .serve_dioxus_application(ServeConfig::new(), App)
         .merge(api_router);
 
+    // `fullstack_address_or_localhost` reads IP/PORT set by `dx serve`.
+    // In production (no dx), it falls back to IP/PORT env vars or 127.0.0.1:8080.
+    // We map HOST → IP so users can set HOST in .env for production.
+    if std::env::var("IP").is_err() {
+        if let Ok(host) = std::env::var("HOST") {
+            std::env::set_var("IP", &host);
+        }
+    }
     let address = dioxus::cli_config::fullstack_address_or_localhost();
     tracing::info!("hermes listening on http://{address}");
 

@@ -32,7 +32,7 @@ use std::{
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        Path, State,
+        Path, Query, State,
     },
     response::IntoResponse,
 };
@@ -58,32 +58,51 @@ struct SessionSlots {
 }
 
 impl SignalingRegistry {
-    /// Registers `tx` for `session_id`.
+    /// Registers `tx` for `session_id` with an explicit role.
     ///
-    /// Returns the assigned slot (`'a'` or `'b'`), or `None` if the session
-    /// already has two peers.
-    pub fn register(&self, session_id: Uuid, tx: PeerTx) -> Option<char> {
+    /// `is_sender = true` → slot `'a'`; `false` → slot `'b'`.
+    ///
+    /// Returns the assigned slot, or `None` if that slot is already taken.
+    /// When both slots are filled after this registration, `PeerJoined` is
+    /// sent to the sender (slot `'a'`) so it creates the WebRTC offer.
+    pub fn register(&self, session_id: Uuid, tx: PeerTx, is_sender: bool) -> Option<char> {
         let mut map = self.0.lock().unwrap();
         let slots = map.entry(session_id).or_default();
-        if slots.peer_a.is_none() {
-            tracing::info!("Session {}: Peer A registered", session_id);
+
+        if is_sender {
+            if slots.peer_a.is_some() {
+                tracing::warn!("Session {}: Sender slot already occupied", session_id);
+                return None;
+            }
+            tracing::info!("Session {}: Sender (Peer A) registered", session_id);
             slots.peer_a = Some(tx);
+            // If receiver already connected, notify sender immediately.
+            if slots.peer_b.is_some() {
+                tracing::info!("Session {}: Receiver already present — notifying sender", session_id);
+                if let Some(ref peer_a) = slots.peer_a {
+                    let msg = Message::Text(
+                        serde_json::to_string(&SignalMessage::PeerJoined).unwrap_or_default().into(),
+                    );
+                    let _ = peer_a.send(msg);
+                }
+            }
             Some('a')
-        } else if slots.peer_b.is_none() {
-            tracing::info!("Session {}: Peer B registered", session_id);
+        } else {
+            if slots.peer_b.is_some() {
+                tracing::warn!("Session {}: Receiver slot already occupied", session_id);
+                return None;
+            }
+            tracing::info!("Session {}: Receiver (Peer B) registered", session_id);
             slots.peer_b = Some(tx);
-            // Notify Peer A that B has joined.
+            // If sender already connected, notify sender now.
             if let Some(ref peer_a) = slots.peer_a {
-                tracing::info!("Session {}: Notifying Peer A that B joined", session_id);
+                tracing::info!("Session {}: Notifying sender that receiver joined", session_id);
                 let msg = Message::Text(
                     serde_json::to_string(&SignalMessage::PeerJoined).unwrap_or_default().into(),
                 );
                 let _ = peer_a.send(msg);
             }
             Some('b')
-        } else {
-            tracing::warn!("Session {}: Rejecting third peer", session_id);
-            None
         }
     }
 
@@ -136,25 +155,40 @@ impl SignalingRegistry {
 
 // ── Axum handler ─────────────────────────────────────────────────────────────
 
+/// Query parameters for the signaling WebSocket endpoint.
+#[derive(serde::Deserialize)]
+pub struct SignalingQuery {
+    role: Option<String>,
+}
+
 /// Axum WebSocket upgrade handler for `GET /ws/signal/{session_id}`.
 ///
 /// Upgrades the HTTP connection and spawns the relay loop.
+/// The `?role=sender` / `?role=receiver` query parameter determines which
+/// slot the peer occupies, preventing the race condition where the receiver
+/// connects first and accidentally takes the sender slot.
 pub async fn signaling_ws_handler(
     ws: WebSocketUpgrade,
     Path(session_id): Path<Uuid>,
+    Query(query): Query<SignalingQuery>,
     State(registry): State<SignalingRegistry>,
 ) -> impl IntoResponse {
-    tracing::info!("WebSocket upgrade request for session: {}", session_id);
-    ws.on_upgrade(move |socket| relay_loop(socket, session_id, registry))
+    let is_sender = query.role.as_deref() != Some("receiver");
+    tracing::info!(
+        "WebSocket upgrade request for session: {} (role: {})",
+        session_id,
+        if is_sender { "sender" } else { "receiver" }
+    );
+    ws.on_upgrade(move |socket| relay_loop(socket, session_id, registry, is_sender))
 }
 
-async fn relay_loop(socket: WebSocket, session_id: Uuid, registry: SignalingRegistry) {
+async fn relay_loop(socket: WebSocket, session_id: Uuid, registry: SignalingRegistry, is_sender: bool) {
     tracing::info!("Starting relay loop for session: {}", session_id);
     let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
 
-    let slot = match registry.register(session_id, tx) {
+    let slot = match registry.register(session_id, tx, is_sender) {
         Some(s) => s,
-        None => return, // session full — reject silently
+        None => return, // slot already taken — reject silently
     };
 
     let (mut ws_tx, mut ws_rx) = socket.split();
@@ -195,23 +229,42 @@ mod tests {
         let (tx_a, _rx_a) = mpsc::unbounded_channel();
         let (tx_b, _rx_b) = mpsc::unbounded_channel();
 
-        assert_eq!(registry.register(id, tx_a), Some('a'));
-        assert_eq!(registry.register(id, tx_b), Some('b'));
+        assert_eq!(registry.register(id, tx_a, true), Some('a'));
+        assert_eq!(registry.register(id, tx_b, false), Some('b'));
     }
 
     #[test]
-    fn third_peer_rejected() {
+    fn receiver_first_then_sender_notified() {
         let registry = SignalingRegistry::default();
         let id = Uuid::new_v4();
 
-        let (tx_a, _) = mpsc::unbounded_channel();
-        let (tx_b, _) = mpsc::unbounded_channel();
-        let (tx_c, _) = mpsc::unbounded_channel();
+        let (tx_a, mut rx_a) = mpsc::unbounded_channel();
+        let (tx_b, _rx_b) = mpsc::unbounded_channel();
 
-        registry.register(id, tx_a);
-        registry.register(id, tx_b);
+        // Receiver connects first.
+        assert_eq!(registry.register(id, tx_b, false), Some('b'));
+        // Sender connects second — should immediately receive PeerJoined.
+        assert_eq!(registry.register(id, tx_a, true), Some('a'));
 
-        assert_eq!(registry.register(id, tx_c), None);
+        let msg = rx_a.try_recv().expect("sender should receive PeerJoined");
+        if let Message::Text(text) = msg {
+            let signal: SignalMessage = serde_json::from_str(&text).unwrap();
+            assert!(matches!(signal, SignalMessage::PeerJoined));
+        } else {
+            panic!("expected text message");
+        }
+    }
+
+    #[test]
+    fn duplicate_sender_rejected() {
+        let registry = SignalingRegistry::default();
+        let id = Uuid::new_v4();
+
+        let (tx_a1, _) = mpsc::unbounded_channel();
+        let (tx_a2, _) = mpsc::unbounded_channel();
+
+        registry.register(id, tx_a1, true);
+        assert_eq!(registry.register(id, tx_a2, true), None);
     }
 
     #[test]
@@ -222,8 +275,8 @@ mod tests {
         let (tx_a, _rx_a) = mpsc::unbounded_channel();
         let (tx_b, mut rx_b) = mpsc::unbounded_channel();
 
-        registry.register(id, tx_a);
-        registry.register(id, tx_b);
+        registry.register(id, tx_a, true);
+        registry.register(id, tx_b, false);
         registry.remove(id, 'a'); // Peer A disconnects
 
         // Peer B should have received a bye message.
@@ -244,8 +297,8 @@ mod tests {
         let (tx_a, _rx_a) = mpsc::unbounded_channel();
         let (tx_b, _rx_b) = mpsc::unbounded_channel();
 
-        registry.register(id, tx_a);
-        registry.register(id, tx_b);
+        registry.register(id, tx_a, true);
+        registry.register(id, tx_b, false);
         registry.remove(id, 'a');
         registry.remove(id, 'b');
 
@@ -260,8 +313,8 @@ mod tests {
         let (tx_a, _rx_a) = mpsc::unbounded_channel();
         let (tx_b, mut rx_b) = mpsc::unbounded_channel();
 
-        registry.register(id, tx_a);
-        registry.register(id, tx_b);
+        registry.register(id, tx_a, true);
+        registry.register(id, tx_b, false);
 
         let payload = Message::Text(r#"{"type":"offer","sdp":"v=0"}"#.to_owned().into());
         registry.forward(id, 'a', payload);

@@ -25,6 +25,7 @@ pub enum StorageError {
 
     /// A backend-specific error not covered by the variants above.
     #[error("storage error: {0}")]
+    #[allow(dead_code)]
     Other(String),
 }
 

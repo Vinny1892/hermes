@@ -37,10 +37,12 @@ async-trait = "0.1"
 anyhow = "1"
 tokio-util = { version = "0.7", features = ["io"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dotenvy = "0.15"
 
 [dev-dependencies]
 tempfile = "3"
 tokio = { version = "1", features = ["full"] }
+tower = { version = "0.5", features = ["util"] }
 
 [features]
 default = ["web"]
@@ -52,7 +54,14 @@ server = ["dioxus/server"]
 [[test]]
 name = "storage"
 path = "tests/storage.rs"
+required-features = ["server"]
 
 [[test]]
 name = "sessions"
 path = "tests/sessions.rs"
+required-features = ["server"]
+
+[[test]]
+name = "handlers"
+path = "tests/handlers.rs"
+required-features = ["server"]

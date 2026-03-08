@@ -154,14 +154,33 @@ fn WebRtcWidget(props: WebRtcWidgetProps) -> Element {
     let signal_url = props.signal_url.clone();
     let session_id = props.session_id.clone();
     let mut file_selected = use_signal(|| false);
+    // Only show the receive link after the sender's WebSocket is open.
+    // This prevents the race condition where the receiver connects first
+    // and accidentally takes slot 'a' (the sender's slot) in the registry.
+    #[allow(unused_mut)] // mutated only on wasm32 inside the cfg block
+    let mut sender_connected = use_signal(|| false);
 
     use_effect(move || {
         let url = signal_url.clone();
         #[cfg(target_arch = "wasm32")]
         {
-            let _ = eval(&format!(
-                "if (typeof window.startP2pSender === 'function') window.startP2pSender({url:?});"
-            ));
+            // Await startP2pSender so we know the WebSocket is open before
+            // revealing the receive link.
+            spawn(async move {
+                let mut ev = eval(&format!(r#"
+                    (async () => {{
+                        // Wait for webrtc.js to load before calling startP2pSender.
+                        while (typeof window.startP2pSender !== 'function') {{
+                            await new Promise(r => setTimeout(r, 50));
+                        }}
+                        await window.startP2pSender({url:?});
+                        dioxus.send(true);
+                    }})();
+                "#));
+                if ev.recv::<bool>().await.is_ok() {
+                    sender_connected.set(true);
+                }
+            });
         }
         #[cfg(not(target_arch = "wasm32"))]
         let _ = url;
@@ -171,12 +190,15 @@ fn WebRtcWidget(props: WebRtcWidgetProps) -> Element {
 
     rsx! {
         div { class: "webrtc-widget",
-            div { class: "share-link p2p-link",
-                p { "Share this link with your friend to start the P2P transfer:" }
-                code { "{receive_url}" }
+            if *sender_connected.read() {
+                div { class: "share-link p2p-link",
+                    p { "Share this link with your friend to start the P2P transfer:" }
+                    code { "{receive_url}" }
+                }
+                p { class: "p2p-instructions", "Waiting for receiver... once they connect, select a file below." }
+            } else {
+                p { class: "p2p-status-connecting", "Connecting to signaling server…" }
             }
-
-            p { class: "p2p-instructions", "Waiting for receiver... once they connect, select a file below." }
 
             div { class: "uploader p2p-uploader",
                 label { class: "drop-zone",

@@ -89,8 +89,10 @@ pub async fn generate_share_link(file_id: String) -> Result<ShareLinkResponse, S
 #[server]
 pub async fn create_p2p_session() -> Result<CreateSessionResponse, ServerFnError> {
     let pool = crate::server::db::global_pool();
-    let base_url =
-        std::env::var("BASE_URL").unwrap_or_else(|_| "http://localhost:8080".to_owned());
+    let base_url = std::env::var("BASE_URL").unwrap_or_else(|_| {
+        let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_owned());
+        format!("http://localhost:{port}")
+    });
 
     crate::server::sessions::create_session(pool, &base_url)
         .await

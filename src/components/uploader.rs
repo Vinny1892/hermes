@@ -122,8 +122,3 @@ async fn js_upload_all() -> Result<Vec<UploadResponse>, String> {
     Ok(responses)
 }
 
-/// Server-side stub — `js_upload_all` is never called during SSR.
-#[cfg(not(target_arch = "wasm32"))]
-async fn js_upload_all() -> Result<Vec<UploadResponse>, String> {
-    unreachable!("js_upload_all should only be called in the browser")
-}

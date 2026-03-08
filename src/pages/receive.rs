@@ -19,9 +19,16 @@ pub fn Receive(session_id: String) -> Element {
         let id = sid.clone();
         #[cfg(target_arch = "wasm32")]
         {
-            let _ = eval(&format!(
-                "if (typeof window.startP2pReceiver === 'function') window.startP2pReceiver({id:?});"
-            ));
+            spawn(async move {
+                let _ = eval(&format!(r#"
+                    (async () => {{
+                        while (typeof window.startP2pReceiver !== 'function') {{
+                            await new Promise(r => setTimeout(r, 50));
+                        }}
+                        window.startP2pReceiver({id:?});
+                    }})();
+                "#));
+            });
         }
         #[cfg(not(target_arch = "wasm32"))]
         let _ = id;
