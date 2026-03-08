@@ -4,8 +4,8 @@
 //! widget. After upload, shows the shareable link and optional P2P status.
 
 use dioxus::prelude::*;
-#[cfg(target_arch = "wasm32")]
 use dioxus::document::eval;
+use crate::app::Route;
 
 use crate::{
     api::{create_p2p_session, generate_share_link},
@@ -186,14 +186,39 @@ fn WebRtcWidget(props: WebRtcWidgetProps) -> Element {
         let _ = url;
     });
 
-    let receive_url = format!("/receive/{}", session_id);
+    let mut full_receive_url = use_signal(|| "".to_string());
+    let receive_url = Route::Receive { session_id: session_id.to_string() }.to_string();
+
+    use_effect(move || {
+        let receive_url = receive_url.clone();
+        spawn(async move {
+            let mut ev = eval(r#"dioxus.send(window.location.origin);"#);
+            if let Ok(origin) = ev.recv::<String>().await {
+                full_receive_url.set(format!("{}{}", origin, receive_url));
+            }
+        });
+    });
+
+    let full_receive_url_clone = (*full_receive_url.read()).clone();
 
     rsx! {
         div { class: "webrtc-widget",
             if *sender_connected.read() {
                 div { class: "share-link p2p-link",
                     p { "Share this link with your friend to start the P2P transfer:" }
-                    code { "{receive_url}" }
+                    div { class: "share-link-input",
+                        code { "{full_receive_url}" }
+                        button {
+                            class: "btn-copy",
+                            onclick: move |_| {
+                                let url = full_receive_url_clone.clone();
+                                spawn(async move {
+                                    let _ = eval(&format!(r#"navigator.clipboard.writeText("{url}");"#)).await;
+                                });
+                            },
+                            "Copy"
+                        }
+                    }
                 }
                 p { class: "p2p-instructions", "Waiting for receiver... once they connect, select a file below." }
             } else {
