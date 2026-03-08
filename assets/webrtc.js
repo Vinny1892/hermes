@@ -91,24 +91,17 @@ function openSignalingSocket(url) {
 /**
  * Initialises the sender side.
  *
- * @param {string} signalUrl - Full WebSocket URL from the server (ws://…/ws/signal/{id}).
+ * @param {string} sessionId - The P2P session UUID.
  */
-window.startP2pSender = async function(signalUrl) {
+window.startP2pSender = async function(sessionId) {
   currentChannel = null;
   setStatus("Connecting to signaling server…");
 
-  // Rewrite the URL to use the current page's host so the WebSocket
-  // connects through the same origin (handles dx serve proxying).
-  try {
-    const parsed = new URL(signalUrl);
-    parsed.host = location.host;
-    parsed.protocol = location.protocol === "https:" ? "wss:" : "ws:";
-    signalUrl = parsed.toString();
-  } catch (_) { /* keep original URL if parsing fails */ }
+  const wsUrl = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/signal/${sessionId}?role=sender`;
 
   let ws;
   try {
-    ws = await openSignalingSocket(signalUrl);
+    ws = await openSignalingSocket(wsUrl);
   } catch (e) {
     console.error("P2P Sender: socket error", e.message);
     setStatus("Error: " + e.message);
@@ -155,7 +148,11 @@ window.startP2pSender = async function(signalUrl) {
 
   setStatus("Waiting for receiver to connect…");
 
-  // Attach file-sending logic once the channel is open.
+  // NOTE: dioxus.send() is NOT available here — it's scoped to eval().
+  // The eval code in home.rs calls `await startP2pSender(...)` then
+  // sends "connected" back to Dioxus after this function returns.
+
+  // Attach file-sending logic once the DataChannel is open.
   channel.onopen = () => {
     currentChannel = channel;
     setStatus("Connected! Select a file to send.");

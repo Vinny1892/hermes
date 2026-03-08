@@ -24,7 +24,7 @@ pub fn FileUploader(props: FileUploaderProps) -> Element {
     let mut error_msg = use_signal(|| Option::<String>::None);
     let mut is_dragging = use_signal(|| false);
 
-    // Injetamos o listener de Drag & Drop nativo
+    // Native drag-and-drop listener
     use_effect(move || {
         let mut on_uploaded = props.on_uploaded.clone();
         spawn(async move {
@@ -75,12 +75,12 @@ pub fn FileUploader(props: FileUploaderProps) -> Element {
                 while let Ok(msg) = ev.recv::<serde_json::Value>().await {
                     match msg {
                         serde_json::Value::String(s) if s == "dragging" => is_dragging.set(true),
-                        serde_json::Value::String(s) if s == "left" => is_dragging.set(false),
-                        serde_json::Value::String(s) if s == "dropped" => {
+                        serde_json::Value::String(s) if s == "left"     => is_dragging.set(false),
+                        serde_json::Value::String(s) if s == "dropped"  => {
                             is_dragging.set(false);
                             uploading.set(true);
                             error_msg.set(None);
-                        },
+                        }
                         serde_json::Value::String(s) if s == "done" => uploading.set(false),
                         serde_json::Value::Object(map) => {
                             if let Some(ok) = map.get("ok") {
@@ -91,7 +91,7 @@ pub fn FileUploader(props: FileUploaderProps) -> Element {
                                 error_msg.set(Some(err.to_string()));
                                 uploading.set(false);
                             }
-                        },
+                        }
                         _ => {}
                     }
                 }
@@ -102,13 +102,13 @@ pub fn FileUploader(props: FileUploaderProps) -> Element {
     rsx! {
         div { class: "uploader",
             if let Some(ref err) = *error_msg.read() {
-                div { class: "uploader-error mb-4", "{err}" }
+                div { class: "uploader-error", "{err}" }
             }
 
-            label { 
+            label {
                 id: "drop-zone-server",
                 class: if *is_dragging.read() { "drop-zone dragging" } else { "drop-zone" },
-                
+
                 input {
                     r#type: "file",
                     multiple: true,
@@ -149,10 +149,27 @@ pub fn FileUploader(props: FileUploaderProps) -> Element {
                         }
                     },
                 }
+
+                // Upload icon
+                svg {
+                    class: "drop-zone-icon",
+                    fill: "none",
+                    stroke: "currentColor",
+                    view_box: "0 0 24 24",
+                    stroke_width: "1.5",
+                    stroke_linecap: "round",
+                    stroke_linejoin: "round",
+                    path { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }
+                    path { d: "M17 8l-5-5-5 5" }
+                    path { d: "M12 3v12" }
+                }
+
                 if *uploading.read() {
-                    span { class: "drop-zone-hint", "Uploading..." }
+                    span { class: "drop-zone-hint drop-zone-uploading", "uploading" }
+                    span { class: "drop-zone-hint-sub", "please wait" }
                 } else {
-                    span { class: "drop-zone-hint", "Drop files here or click to browse" }
+                    span { class: "drop-zone-hint", "drop files here or click to browse" }
+                    span { class: "drop-zone-hint-sub", "stored 7 days · shareable link" }
                 }
             }
         }

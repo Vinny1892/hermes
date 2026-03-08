@@ -41,11 +41,19 @@ pub fn Home() -> Element {
 
     rsx! {
         div { class: "page home-page",
-            h1 { "hermes" }
-            p { class: "tagline", "Share files securely via server or P2P." }
 
+            // ── Header ─────────────────────────────────────────────────────
+            div { class: "home-header",
+                h1 { class: "home-title",
+                    "HERMES"
+                    span { class: "home-cursor", "_" }
+                }
+                p { class: "tagline", "point-to-point · server-cached · encrypted" }
+            }
+
+            // ── Mode Selector ──────────────────────────────────────────────
             div { class: "mode-selector",
-                label { 
+                label {
                     class: if *mode.read() == TransferMode::ServerUpload { "mode-btn active" } else { "mode-btn" },
                     input {
                         r#type: "radio",
@@ -53,9 +61,21 @@ pub fn Home() -> Element {
                         checked: *mode.read() == TransferMode::ServerUpload,
                         onchange: move |_| mode.set(TransferMode::ServerUpload),
                     }
+                    svg {
+                        class: "mode-icon",
+                        fill: "none",
+                        stroke: "currentColor",
+                        view_box: "0 0 24 24",
+                        stroke_width: "2",
+                        stroke_linecap: "round",
+                        stroke_linejoin: "round",
+                        path { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }
+                        path { d: "M17 8l-5-5-5 5" }
+                        path { d: "M12 3v12" }
+                    }
                     span { "Server Upload" }
                 }
-                label { 
+                label {
                     class: if *mode.read() == TransferMode::P2P { "mode-btn active" } else { "mode-btn" },
                     input {
                         r#type: "radio",
@@ -63,40 +83,55 @@ pub fn Home() -> Element {
                         checked: *mode.read() == TransferMode::P2P,
                         onchange: move |_| mode.set(TransferMode::P2P),
                     }
-                    span { "Direct P2P" }
+                    svg {
+                        class: "mode-icon",
+                        fill: "none",
+                        stroke: "currentColor",
+                        view_box: "0 0 24 24",
+                        stroke_width: "2",
+                        stroke_linecap: "round",
+                        stroke_linejoin: "round",
+                        path { d: "M5 12.55a11 11 0 0 1 14.08 0" }
+                        path { d: "M1.42 9a16 16 0 0 1 21.16 0" }
+                        path { d: "M8.53 16.11a6 6 0 0 1 6.95 0" }
+                        path { d: "M12 20h.01", stroke_width: "3" }
+                    }
+                    span { "P2P Direct" }
                 }
             }
 
+            // ── Content ────────────────────────────────────────────────────
             if *mode.read() == TransferMode::ServerUpload {
                 FileUploader { on_uploaded }
 
                 if let Some(ref resp) = *upload_result.read() {
-                    div { class: "upload-result mt-8 animate-in fade-in slide-in-from-bottom-4 duration-500",
-                        div { class: "flex flex-col gap-4 bg-slate-900/40 p-6 rounded-2xl border border-white/5 backdrop-blur-sm shadow-xl",
-                            div {
-                                p { class: "text-sm text-gray-400 mb-1 font-medium", "File uploaded successfully!" }
-                                ShareLinkWidget { 
-                                    label: "Direct download link:", 
-                                    url: resp.download_url.clone() 
-                                }
+                    div { class: "upload-result",
+                        div { class: "upload-result-card",
+                            div { class: "upload-result-header",
+                                div { class: "upload-result-dot" }
+                                "transfer complete"
                             }
-                            
-                            div { class: "border-t border-white/5 pt-4 flex flex-col gap-3",
+                            div { class: "upload-result-body",
+                                ShareLinkWidget {
+                                    label: "direct link".to_string(),
+                                    url: resp.download_url.clone(),
+                                }
+                                hr { class: "upload-result-divider" }
                                 if share_url.read().is_none() {
                                     button {
-                                        class: "btn w-full bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/20 py-2 rounded-xl transition-all active:scale-[0.98]",
+                                        class: "btn btn-ghost btn-w-full",
                                         onclick: on_generate_link,
                                         "Generate 10-min share link"
                                     }
                                 }
                                 if let Some(ref url) = *share_url.read() {
-                                    ShareLinkWidget { 
-                                        label: "Temporary share link (expires in 10 min):", 
-                                        url: url.clone() 
+                                    ShareLinkWidget {
+                                        label: "expires in 10 min".to_string(),
+                                        url: url.clone(),
                                     }
                                 }
                                 if let Some(ref err) = *share_error.read() {
-                                    p { class: "text-red-400 text-xs mt-1", "{err}" }
+                                    p { class: "error", "{err}" }
                                 }
                             }
                         }
@@ -109,7 +144,7 @@ pub fn Home() -> Element {
     }
 }
 
-// ── Shared UI Components ──────────────────────────────────────────────────────
+// ── Share Link Widget ─────────────────────────────────────────────────────────
 
 #[derive(Props, Clone, PartialEq)]
 struct ShareLinkWidgetProps {
@@ -141,20 +176,18 @@ fn ShareLinkWidget(props: ShareLinkWidgetProps) -> Element {
 
     rsx! {
         div { class: "share-link-widget",
-            p { class: "text-[11px] uppercase tracking-wider text-gray-500 mb-1.5 ml-1 font-bold", "{props.label}" }
-            div { class: "flex items-center gap-3 bg-slate-900/80 p-3 rounded-xl border border-white/10 shadow-inner group",
-                code { class: "flex-1 font-mono text-xs truncate text-blue-300/90 selection:bg-blue-500/30", "{current_url}" }
+            p { class: "share-link-label", "{props.label}" }
+            div { class: "share-link-row",
+                code { class: "share-link-code", "{current_url}" }
                 button {
-                    class: "p-1.5 hover:bg-white/5 rounded-lg transition-all active:scale-90 relative",
+                    class: if *copied.read() { "share-link-copy copied" } else { "share-link-copy" },
                     title: "Copy to clipboard",
                     onclick: move |_| {
                         let to_copy = current_url.clone();
                         copied.set(true);
                         spawn(async move {
                             let _ = eval(&format!(r#"
-                                navigator.clipboard.writeText("{to_copy}").then(() => {{
-                                    dioxus.send("copied");
-                                }}).catch(err => {{
+                                navigator.clipboard.writeText("{to_copy}").catch(err => {{
                                     console.error("Failed to copy:", err);
                                 }});
                             "#));
@@ -165,29 +198,26 @@ fn ShareLinkWidget(props: ShareLinkWidgetProps) -> Element {
                     },
                     if *copied.read() {
                         svg {
-                            class: "w-4 h-4 text-green-400 animate-in zoom-in-50 duration-300",
                             fill: "none",
                             stroke: "currentColor",
                             view_box: "0 0 24 24",
-                            path {
-                                stroke_linecap: "round",
-                                stroke_linejoin: "round",
-                                stroke_width: "3",
-                                d: "M5 13l4 4L19 7"
-                            }
+                            stroke_width: "2.5",
+                            stroke_linecap: "round",
+                            stroke_linejoin: "round",
+                            style: "width:13px;height:13px",
+                            path { d: "M20 6L9 17l-5-5" }
                         }
                     } else {
                         svg {
-                            class: "w-4 h-4 text-gray-500 group-hover:text-blue-400 transition-colors",
                             fill: "none",
                             stroke: "currentColor",
                             view_box: "0 0 24 24",
-                            path {
-                                stroke_linecap: "round",
-                                stroke_linejoin: "round",
-                                stroke_width: "2",
-                                d: "M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                            }
+                            stroke_width: "2",
+                            stroke_linecap: "round",
+                            stroke_linejoin: "round",
+                            style: "width:13px;height:13px",
+                            path { d: "M8 17H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2" }
+                            path { d: "M10 9h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z" }
                         }
                     }
                 }
@@ -196,7 +226,7 @@ fn ShareLinkWidget(props: ShareLinkWidgetProps) -> Element {
     }
 }
 
-// ── P2P panel ─────────────────────────────────────────────────────────────────
+// ── P2P Panel ─────────────────────────────────────────────────────────────────
 
 #[component]
 fn P2pPanel() -> Element {
@@ -216,13 +246,12 @@ fn P2pPanel() -> Element {
 
     rsx! {
         div { class: "p2p-panel",
-            h2 { "P2P Transfer" }
             if let Some(ref err) = *error.read() {
                 p { class: "error", "Signaling error: {err}" }
             } else if let Some(ref id) = *session_id.read() {
                 WebRtcWidget { session_id: id.clone() }
             } else {
-                p { "Creating session..." }
+                p { class: "p2p-status-connecting", "Connecting to signaling server" }
             }
         }
     }
@@ -252,7 +281,15 @@ fn WebRtcWidget(session_id: String) -> Element {
     use_effect(move || {
         let sid = session_id.clone();
         spawn(async move {
-            let mut ev = eval(&format!("startP2pSender('{}')", sid));
+            let mut ev = eval(&format!(r#"
+                (async () => {{
+                    while (typeof window.startP2pSender !== 'function') {{
+                        await new Promise(r => setTimeout(r, 50));
+                    }}
+                    await window.startP2pSender('{}');
+                    dioxus.send("connected");
+                }})();
+            "#, sid));
             while let Ok(msg) = ev.recv::<String>().await {
                 if msg == "connected" {
                     sender_connected.set(true);
@@ -287,10 +324,10 @@ fn WebRtcWidget(session_id: String) -> Element {
                 while let Ok(msg) = ev.recv::<String>().await {
                     match msg.as_str() {
                         "dragging" => is_dragging.set(true),
-                        "left" => is_dragging.set(false),
-                        "dropped" => is_dragging.set(false),
-                        "done" => file_selected.set(true),
-                        _ => {}
+                        "left"     => is_dragging.set(false),
+                        "dropped"  => is_dragging.set(false),
+                        "done"     => file_selected.set(true),
+                        _          => {}
                     }
                 }
             }
@@ -298,24 +335,31 @@ fn WebRtcWidget(session_id: String) -> Element {
     });
 
     rsx! {
-        div { class: "webrtc-widget mt-6",
-            if *sender_connected.read() {
-                div { class: "p2p-share-container animate-in fade-in slide-in-from-bottom-4 duration-500",
-                    ShareLinkWidget {
-                        label: "Share this link with your friend:",
-                        url: full_receive_url_clone
+        div { class: "webrtc-widget",
+            // Always show the share link so the user can send it to the receiver.
+            if !full_receive_url_clone.is_empty() {
+                div { class: "p2p-share-container",
+                    div { style: "margin-top: 0.75rem;",
+                        ShareLinkWidget {
+                            label: "share with receiver".to_string(),
+                            url: full_receive_url_clone,
+                        }
                     }
                 }
-                p { class: "p2p-instructions text-gray-400 text-xs mt-4 italic", "Waiting for receiver... once they connect, select a file below." }
+            }
+
+            if *sender_connected.read() {
+                div { class: "p2p-connected-badge", "signaling connected" }
+                p { class: "p2p-instructions", "Waiting for receiver — once connected, select a file below." }
             } else {
                 p { class: "p2p-status-connecting", "Connecting to signaling server…" }
             }
 
             div { class: "uploader p2p-uploader",
-                label { 
+                label {
                     id: "drop-zone-p2p",
                     class: if *is_dragging.read() { "drop-zone dragging" } else { "drop-zone" },
-                    
+
                     input {
                         id: "p2p-file-input",
                         r#type: "file",
@@ -328,10 +372,27 @@ fn WebRtcWidget(session_id: String) -> Element {
                             });
                         },
                     }
+
+                    // Upload icon
+                    svg {
+                        class: "drop-zone-icon",
+                        fill: "none",
+                        stroke: "currentColor",
+                        view_box: "0 0 24 24",
+                        stroke_width: "1.5",
+                        stroke_linecap: "round",
+                        stroke_linejoin: "round",
+                        path { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }
+                        path { d: "M17 8l-5-5-5 5" }
+                        path { d: "M12 3v12" }
+                    }
+
                     if *file_selected.read() {
-                        span { class: "drop-zone-hint text-green-400", "File selected! Starting transfer..." }
+                        span { class: "drop-zone-hint drop-zone-uploading", "transfer initiated" }
+                        span { class: "drop-zone-hint-sub", "keep this tab open" }
                     } else {
-                        span { class: "drop-zone-hint", "Select file to send via P2P" }
+                        span { class: "drop-zone-hint", "drop file or click to select" }
+                        span { class: "drop-zone-hint-sub", "direct P2P — no server storage" }
                     }
                 }
             }

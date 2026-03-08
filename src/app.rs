@@ -1,24 +1,10 @@
 //! Root component and application routes.
-//!
-//! # Route tree
-//!
-//! ```text
-//! /                   → Home       (upload + mode selector)
-//! /f/:file_id         → Download   (shows file info + download button)
-//! /receive/:session_id → Receive   (P2P receiver, waits for sender)
-//! ```
-//!
-//! The `Navbar` layout wraps all routes and injects global CSS/JS assets.
 
 use dioxus::prelude::*;
+use dioxus::document::eval;
 
 use crate::pages::{Download, Home, Receive};
 
-/// Application route enum.
-///
-/// Each variant maps to a URL pattern. Dynamic segments (`:file_id`,
-/// `:session_id`) become fields in the variant and are passed as props to
-/// the corresponding page component.
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
 pub enum Route {
@@ -31,9 +17,6 @@ pub enum Route {
         Receive { session_id: String },
 }
 
-/// Root component.
-///
-/// Injects global assets (favicon, CSS, WebRTC JS) and mounts the router.
 #[component]
 pub fn App() -> Element {
     rsx! {
@@ -45,12 +28,87 @@ pub fn App() -> Element {
     }
 }
 
-/// Shared navigation bar rendered around every route via `#[layout(Navbar)]`.
 #[component]
 fn Navbar() -> Element {
+    let mut is_light = use_signal(|| false);
+
+    // Restore theme from localStorage on mount
+    use_effect(move || {
+        spawn(async move {
+            let mut ev = eval(r#"
+                const saved = localStorage.getItem('hermes-theme');
+                dioxus.send(saved === 'light');
+            "#);
+            if let Ok(light) = ev.recv::<bool>().await {
+                is_light.set(light);
+                if light {
+                    let _ = eval(r#"document.documentElement.setAttribute('data-theme','light');"#);
+                }
+            }
+        });
+    });
+
+    let toggle = move |_| {
+        let next = !*is_light.read();
+        is_light.set(next);
+        spawn(async move {
+            if next {
+                let _ = eval(r#"
+                    document.documentElement.setAttribute('data-theme','light');
+                    localStorage.setItem('hermes-theme','light');
+                "#);
+            } else {
+                let _ = eval(r#"
+                    document.documentElement.removeAttribute('data-theme');
+                    localStorage.setItem('hermes-theme','dark');
+                "#);
+            }
+        });
+    };
+
     rsx! {
         nav { class: "navbar",
-            Link { to: Route::Home {}, class: "navbar-brand", "hermes" }
+            Link { to: Route::Home {}, class: "navbar-brand",
+                "HERMES"
+                span { class: "navbar-brand-cursor" }
+            }
+            div { class: "navbar-right",
+                div { class: "navbar-meta",
+                    div { class: "navbar-status-dot" }
+                    span { "secure transfer" }
+                }
+                button {
+                    class: "theme-toggle",
+                    onclick: toggle,
+                    title: if *is_light.read() { "Switch to dark mode" } else { "Switch to light mode" },
+                    if *is_light.read() {
+                        // Moon — switch to dark
+                        svg {
+                            fill: "none",
+                            stroke: "currentColor",
+                            view_box: "0 0 24 24",
+                            stroke_width: "2",
+                            stroke_linecap: "round",
+                            stroke_linejoin: "round",
+                            style: "width:17px;height:17px",
+                            path { d: "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" }
+                        }
+                    } else {
+                        // Sun — switch to light
+                        svg {
+                            fill: "none",
+                            stroke: "currentColor",
+                            view_box: "0 0 24 24",
+                            stroke_width: "2",
+                            stroke_linecap: "round",
+                            stroke_linejoin: "round",
+                            style: "width:17px;height:17px",
+                            path { d: "M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z" }
+                            path { d: "M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" }
+                        }
+                    }
+                }
+            }
         }
         Outlet::<Route> {}
     }

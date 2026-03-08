@@ -20,25 +20,63 @@ pub fn Download(file_id: String) -> Element {
     rsx! {
         div { class: "page download-page",
             match &*info.read() {
-                None => rsx! { p { "Loading..." } },
+                None => rsx! {
+                    p { class: "loading-text", "Fetching file info" }
+                },
                 Some(Err(e)) => rsx! {
-                    h2 { "File not found" }
+                    h2 { style: "font-size:1.2rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-bright);margin-bottom:0.5rem;",
+                        "File not found"
+                    }
                     p { class: "error", "{e}" }
-                    Link { to: Route::Home {}, "Back to home" }
+                    Link { to: Route::Home {}, class: "not-found-link", "Back to home" }
                 },
                 Some(Ok(meta)) => rsx! {
                     div { class: "file-card",
-                        h2 { "{meta.filename}" }
-                        p { class: "file-meta",
-                            span { "{fmt_size(meta.size)}" }
-                            span { " · expires " }
-                            span { "{fmt_expiry(&meta.expires_at)}" }
+                        div { class: "file-card-header",
+                            div { class: "file-card-icon",
+                                svg {
+                                    fill: "none",
+                                    stroke: "currentColor",
+                                    view_box: "0 0 24 24",
+                                    stroke_width: "1.5",
+                                    stroke_linecap: "round",
+                                    stroke_linejoin: "round",
+                                    style: "width:18px;height:18px",
+                                    path { d: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" }
+                                    path { d: "M14 2v6h6" }
+                                }
+                            }
+                            span { class: "file-card-name", "{meta.filename}" }
                         }
-                        a {
-                            class: "btn download-btn",
-                            href: "/f/{file_id}",
-                            download: "{meta.filename}",
-                            "Download"
+                        div { class: "file-card-body",
+                            div { class: "file-meta",
+                                div { class: "file-meta-item",
+                                    span { class: "file-meta-label", "size" }
+                                    span { class: "file-meta-value", "{fmt_size(meta.size)}" }
+                                }
+                                div { class: "file-meta-item",
+                                    span { class: "file-meta-label", "expires" }
+                                    span { class: "file-meta-value", "{fmt_expiry(&meta.expires_at)}" }
+                                }
+                            }
+                            a {
+                                class: "btn download-btn",
+                                href: "/f/{file_id}",
+                                download: "{meta.filename}",
+                                svg {
+                                    fill: "none",
+                                    stroke: "currentColor",
+                                    view_box: "0 0 24 24",
+                                    stroke_width: "2",
+                                    stroke_linecap: "round",
+                                    stroke_linejoin: "round",
+                                    style: "width:14px;height:14px",
+                                    path { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }
+                                    path { d: "M7 10l5 5 5-5" }
+                                    path { d: "M12 15V3" }
+                                }
+                                "Download"
+                            }
                         }
                     }
                 },
