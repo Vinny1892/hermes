@@ -201,22 +201,60 @@ fn WebRtcWidget(props: WebRtcWidgetProps) -> Element {
 
     let full_receive_url_clone = (*full_receive_url.read()).clone();
 
+    let mut copied = use_signal(|| false);
+
     rsx! {
-        div { class: "webrtc-widget",
+        div { class: "webrtc-widget mt-6",
             if *sender_connected.read() {
-                div { class: "share-link p2p-link",
-                    p { "Share this link with your friend to start the P2P transfer:" }
-                    div { class: "share-link-input",
-                        code { "{full_receive_url}" }
+                div { class: "p2p-share-container animate-in fade-in slide-in-from-bottom-4 duration-500",
+                    p { class: "text-sm text-gray-400 mb-2 font-medium", "Share this link with your friend:" }
+                    div { class: "flex items-center gap-3 bg-slate-900/60 p-4 rounded-xl border border-white/5 backdrop-blur-md shadow-2xl",
+                        code { class: "flex-1 font-mono text-sm truncate text-blue-300 selection:bg-blue-500/30", "{full_receive_url}" }
                         button {
-                            class: "btn-copy",
+                            class: "p-2 hover:bg-white/10 rounded-lg transition-all active:scale-95 group relative overflow-hidden",
+                            title: "Copy to clipboard",
                             onclick: move |_| {
                                 let url = full_receive_url_clone.clone();
                                 spawn(async move {
-                                    let _ = eval(&format!(r#"navigator.clipboard.writeText("{url}");"#)).await;
+                                    let mut _ev = eval(&format!(r#"
+                                        navigator.clipboard.writeText("{url}").then(() => {{
+                                            dioxus.send("copied");
+                                        }}).catch(err => {{
+                                            console.error("Failed to copy:", err);
+                                        }});
+                                    "#));
+                                    copied.set(true);
+                                    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                                    copied.set(false);
                                 });
                             },
-                            "Copy"
+                            if *copied.read() {
+                                svg {
+                                    class: "w-5 h-5 text-green-400 animate-in zoom-in-50 duration-300",
+                                    fill: "none",
+                                    stroke: "currentColor",
+                                    view_box: "0 0 24 24",
+                                    path {
+                                        stroke_linecap: "round",
+                                        stroke_linejoin: "round",
+                                        stroke_width: "2.5",
+                                        d: "M5 13l4 4L19 7"
+                                    }
+                                }
+                            } else {
+                                svg {
+                                    class: "w-5 h-5 text-gray-400 group-hover:text-blue-400 transition-colors",
+                                    fill: "none",
+                                    stroke: "currentColor",
+                                    view_box: "0 0 24 24",
+                                    path {
+                                        stroke_linecap: "round",
+                                        stroke_linejoin: "round",
+                                        stroke_width: "2",
+                                        d: "M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                    }
+                                }
+                            }
                         }
                     }
                 }
