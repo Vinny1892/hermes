@@ -40,36 +40,36 @@ To ensure reliability over WebRTC (which can have UDP-like characteristics if no
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Peer A (Sender)
-    participant Server (Signaling)
-    participant Peer B (Receiver)
+    participant A as Peer A (Sender)
+    participant S as Server (Signaling)
+    participant B as Peer B (Receiver)
 
-    Note over Peer A, Peer B: Initial Handshake
-    Peer A ->> Server: connect /ws/signal/{id}?role=sender
-    Peer B ->> Server: connect /ws/signal/{id}?role=receiver
-    Server -->> Peer A: SignalMessage::PeerJoined
+    Note over A, B: Initial Handshake
+    A ->> S: connect /ws/signal/{id}?role=sender
+    B ->> S: connect /ws/signal/{id}?role=receiver
+    S -->> A: SignalMessage::PeerJoined
     
-    Note over Peer A: Peer A creates Offer
-    Peer A ->> Server: send { type: "offer", sdp: "..." }
-    Server ->> Peer B: forward offer
+    Note over A: Peer A creates Offer
+    A ->> S: send { type: "offer", sdp: "..." }
+    S ->> B: forward offer
     
-    Note over Peer B: Peer B creates Answer
-    Peer B ->> Server: send { type: "answer", sdp: "..." }
-    Server ->> Peer A: forward answer
+    Note over B: Peer B creates Answer
+    B ->> S: send { type: "answer", sdp: "..." }
+    S ->> A: forward answer
     
-    Note over Peer A, Peer B: ICE Candidate Exchange
-    Peer A ->> Server: send { type: "ice-candidate", ... }
-    Server ->> Peer B: forward candidate
-    Peer B ->> Server: send { type: "ice-candidate", ... }
-    Server ->> Peer A: forward candidate
+    Note over A, B: ICE Candidate Exchange
+    A ->> S: send { type: "ice-candidate", ... }
+    S ->> B: forward candidate
+    B ->> S: send { type: "ice-candidate", ... }
+    S ->> A: forward candidate
 
-    Note over Peer A, Peer B: P2P Established (Direct)
-    Peer A ->> Peer B: DataChannel: file-start
+    Note over A, B: P2P Established (Direct)
+    A ->> B: DataChannel: file-start
     loop Until complete
-        Peer A ->> Peer B: DataChannel: chunk
-        Peer B ->> Peer A: DataChannel: ack
+        A ->> B: DataChannel: chunk
+        B ->> A: DataChannel: ack
     end
-    Peer A ->> Peer B: DataChannel: file-end
+    A ->> B: DataChannel: file-end
 ```
 
 ## 🗄️ Storage Engine abstraction
