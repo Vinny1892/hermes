@@ -91,27 +91,6 @@ Standard multipart upload with streaming download support.
 
 ---
 
-## 📡 Signaling Flow
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant A as Peer A (Sender)
-    participant S as Server (Signaling)
-    participant B as Peer B (Receiver)
-
-    A ->> S: WebSocket: /ws/signal/{id}?role=sender
-    B ->> S: WebSocket: /ws/signal/{id}?role=receiver
-    S -->> A: SignalMessage::PeerJoined
-    A ->> S: WebRTC Offer
-    S ->> B: Forward Offer
-    B ->> S: WebRTC Answer
-    S ->> A: Forward Answer
-    Note over A, B: P2P DataChannel Established
-```
-
----
-
 ## 🐳 Deployment
 
 Hermes is container-ready with two configurations:
