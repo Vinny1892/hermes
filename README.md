@@ -1,8 +1,3 @@
----
-title: "Hermes: Fullstack P2P File Sharing"
-description: "High-performance file sharing with WebRTC direct transfer and server-side fallback."
----
-
 # 🕊️ Hermes
 
 **Hermes** is a privacy-focused, high-performance file-sharing application built with **Rust**, **Dioxus 0.7**, and **Axum**. It prioritizes direct Peer-to-Peer (P2P) transfers via WebRTC while providing a robust server-side upload/download fallback.
