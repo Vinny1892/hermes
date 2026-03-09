@@ -78,8 +78,10 @@ async fn run_server() {
     let pool = init_db().await.expect("database init failed");
     set_global_pool(pool.clone());
 
+    let storage_dir =
+        std::env::var("STORAGE_DIR").unwrap_or_else(|_| format!("{}/storage/uploads", env!("CARGO_MANIFEST_DIR")));
     let storage: Arc<dyn server::storage::StorageBackend> = Arc::new(
-        LocalStorage::new(concat!(env!("CARGO_MANIFEST_DIR"), "/storage/uploads"))
+        LocalStorage::new(&storage_dir)
             .await
             .expect("storage init failed"),
     );

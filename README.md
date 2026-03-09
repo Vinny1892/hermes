@@ -278,3 +278,43 @@ coturn (TURN server, para redes restritivas)
 ```
 
 Servidor mínimo recomendado: 2 vCPU, 2 GB RAM.
+
+## Deploy com Docker
+
+O `Dockerfile` raiz agora gera uma imagem só da aplicação Hermes, sem `nginx` e sem `certbot`.
+
+### Build da imagem
+
+```sh
+docker build -t hermes-app .
+```
+
+### Run direto
+
+```sh
+docker run -d \
+  --name hermes \
+  -p 8080:8080 \
+  -e BASE_URL=https://files.exemplo.com \
+  -v hermes_data:/var/lib/hermes \
+  hermes-app
+```
+
+### Variáveis de ambiente do container
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `BASE_URL` | `http://localhost:8080` | URL pública usada pelo Hermes |
+| `HOST` | `0.0.0.0` | Interface de bind do servidor |
+| `PORT` | `8080` | Porta HTTP exposta pelo binário |
+| `DATABASE_URL` | `sqlite:/var/lib/hermes/hermes.db` | Banco SQLite persistido em volume |
+| `STORAGE_DIR` | `/var/lib/hermes/uploads` | Diretório persistente dos arquivos enviados |
+| `RUST_LOG` | `hermes=info` | Nível de logs da aplicação |
+
+### Variante completa
+
+Se você ainda quiser a imagem all-in-one com `nginx` + `certbot`, ela foi preservada em `deploy/standalone/Dockerfile`:
+
+```sh
+docker build -f deploy/standalone/Dockerfile -t hermes-standalone .
+```

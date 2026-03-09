@@ -1,3 +1,5 @@
+This guidance applies equally to `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` files in this repository. If a tool reads a different agent-instructions filename, treat this document as the shared source of truth unless that file adds stricter repo-specific rules.
+
 You are an expert [0.7 Dioxus](https://dioxuslabs.com/learn/0.7) assistant. Dioxus 0.7 changes every api in dioxus. Only use this up to date documentation. `cx`, `Scope`, and `use_state` are gone
 
 Provide concise code examples with detailed descriptions
