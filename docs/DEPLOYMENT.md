@@ -75,25 +75,30 @@ docker run -d \
 ### Standalone Internal Flow
 ```mermaid
 flowchart TD
-    Internet((Internet))
+    Internet(("Internet"))
+    
     subgraph "Standalone Container"
-        NGINX[Nginx (80/443)]
-        CB[Certbot]
-        APP[Hermes Rust App (8080)]
-        DB[(SQLite)]
-        FS[[Local Storage]]
+        NGINX["Nginx (80/443)"]
+        CB["Certbot"]
+        APP["Hermes Rust App (8080)"]
+        DB[("SQLite")]
+        FS[["Local Storage"]]
     end
 
-    Internet -- HTTPS --> NGINX
-    NGINX -- Reverse Proxy --> APP
+    Internet -- "HTTPS" --> NGINX
+    NGINX -- "Reverse Proxy" --> APP
     APP --> DB
     APP --> FS
-    CB -- Challenges --> NGINX
-    CB -- Renews --> FS
+    CB -- "Challenges" --> NGINX
+    CB -- "Renews" --> FS
     
+    %% Node Styles
     style NGINX fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style CB fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style APP fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style DB fill:#161b22,stroke:#30363d,color:#e6edf3
+    style DB fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style FS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style Internet fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
 ---
