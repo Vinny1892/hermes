@@ -1,0 +1,32 @@
+services:
+  hermes:
+    build:
+      context: ../..
+      dockerfile: deploy/cloudflare/Dockerfile
+    restart: unless-stopped
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8080"
+      DATABASE_URL: "sqlite:///var/lib/hermes/hermes.db?mode=rwc"
+      STORAGE_DIR: "/var/lib/hermes/uploads"
+      # BASE_URL must match the public hostname configured in the Cloudflare tunnel,
+      # so WebSocket URLs for P2P signaling are built correctly.
+      BASE_URL: "${BASE_URL:-https://change-me.example.com}"
+      RUST_LOG: "${RUST_LOG:-hermes=info}"
+    volumes:
+      - hermes_data:/var/lib/hermes
+    # Not exposed to host — only reachable by the tunnel container on the internal network.
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    # Obtain the token at: Cloudflare Zero Trust → Networks → Tunnels → Create tunnel
+    # Then set CLOUDFLARE_TUNNEL_TOKEN in a .env file next to this compose file.
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - hermes
+    environment:
+      TUNNEL_URL: "http://hermes:8080"
+
+volumes:
+  hermes_data:

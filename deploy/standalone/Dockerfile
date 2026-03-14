@@ -20,7 +20,7 @@ COPY src ./src
 COPY tailwind.css ./tailwind.css
 
 RUN cargo build --release --features "server web"
-RUN dx build --platform web --release --features "server web"
+RUN dx build --platform web --release --no-default-features --features web
 
 RUN mkdir -p /out/public /out/assets /out/migrations \
     && cp target/release/hermes /out/hermes \
@@ -44,6 +44,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         certbot \
+        libsqlite3-0 \
         gettext-base \
         nginx \
         supervisor \
