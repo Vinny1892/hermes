@@ -60,7 +60,7 @@ fn AuthGuard() -> Element {
                 let _ = win.location().replace("/login");
             }
             return rsx! {
-                div { class: "auth-gate",
+                div { class: "flex items-center justify-center min-h-screen",
                     div { class: "auth-gate-spinner" }
                 }
             };
@@ -115,13 +115,13 @@ fn Navbar() -> Element {
 
     rsx! {
         nav { class: "navbar",
-            Link { to: Route::Home {}, class: "navbar-brand",
+            Link { to: Route::Home {}, class: "flex items-center gap-0 text-[1.1rem] font-bold text-[var(--accent)] no-underline tracking-[0.28em] uppercase",
                 "HERMES"
                 span { class: "navbar-brand-cursor" }
             }
-            div { class: "navbar-right",
-                div { class: "navbar-meta",
-                    div { class: "navbar-status-dot" }
+            div { class: "flex items-center gap-3",
+                div { class: "flex items-center gap-2 text-[0.75rem] text-[var(--text-muted)] tracking-[0.1em] uppercase",
+                    div { class: "w-[6px] h-[6px] rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)] shrink-0" }
                     span { "secure transfer" }
                 }
                 button {

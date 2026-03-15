@@ -29,7 +29,7 @@ pub fn ProgressBar(props: ProgressBarProps) -> Element {
     let width = format!("{pct}%");
 
     rsx! {
-        div { class: "progress-track",
+        div { class: "w-full h-[3px] bg-[var(--border)] rounded-[2px] overflow-hidden",
             div {
                 class: "progress-fill",
                 style: "width: {width}",
@@ -38,7 +38,7 @@ pub fn ProgressBar(props: ProgressBarProps) -> Element {
                 aria_valuemin: "0",
                 aria_valuemax: "100",
                 if let Some(label) = &props.label {
-                    span { class: "progress-label", "{label}" }
+                    span { class: "text-[0.62rem] text-[var(--text-muted)] mt-[0.3rem] tracking-[0.04em]", "{label}" }
                 }
             }
         }

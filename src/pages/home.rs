@@ -93,10 +93,10 @@ pub fn Home() -> Element {
     let egg_text = &" e Renato"[..*chars_shown.read()];
 
     rsx! {
-        div { class: "page home-page",
+        div { class: "max-w-[680px] mx-auto mt-10 px-8 pb-16 [animation:fade-up_0.4s_ease_both]",
 
             // ── Header ─────────────────────────────────────────────────────
-            div { class: "home-header",
+            div { class: "mb-10",
                 h1 {
                     class: if egg_on { "home-title home-title-egg" } else { "home-title" },
                     style: "cursor: default; user-select: none;",
@@ -117,7 +117,7 @@ pub fn Home() -> Element {
             }
 
             // ── Mode Selector ──────────────────────────────────────────────
-            div { class: "mode-selector",
+            div { class: "flex mb-7 border border-[var(--border)] rounded-[var(--radius)] overflow-hidden",
                 label {
                     class: if *mode.read() == TransferMode::ServerUpload { "mode-btn active" } else { "mode-btn" },
                     input {
@@ -170,18 +170,18 @@ pub fn Home() -> Element {
                 FileUploader { on_uploaded }
 
                 if let Some(ref resp) = *upload_result.read() {
-                    div { class: "upload-result",
-                        div { class: "upload-result-card",
-                            div { class: "upload-result-header",
+                    div { class: "mt-6 [animation:fade-up_0.35s_ease_both]",
+                        div { class: "bg-[var(--surface)] border border-[var(--border)] rounded-[var(--radius-lg)] overflow-hidden",
+                            div { class: "px-5 py-3 border-b border-[var(--border)] flex items-center gap-2 text-[0.8rem] uppercase tracking-[0.12em] text-[var(--accent)] bg-[rgba(110,114,251,0.05)]",
                                 div { class: "upload-result-dot" }
                                 "transfer complete"
                             }
-                            div { class: "upload-result-body",
+                            div { class: "p-5 flex flex-col gap-4",
                                 ShareLinkWidget {
                                     label: "direct link".to_string(),
                                     url: resp.download_url.clone(),
                                 }
-                                hr { class: "upload-result-divider" }
+                                hr { class: "h-px bg-[var(--border)] border-none" }
                                 if share_url.read().is_none() {
                                     button {
                                         class: "btn btn-ghost btn-w-full",
@@ -196,7 +196,7 @@ pub fn Home() -> Element {
                                     }
                                 }
                                 if let Some(ref err) = *share_error.read() {
-                                    p { class: "error", "{err}" }
+                                    p { class: "text-[0.875rem] text-[var(--error)] px-[0.8rem] py-[0.6rem] border-l-2 border-[var(--error)] bg-[var(--error-dim)] rounded-r-[var(--radius)] tracking-[0.02em]", "{err}" }
                                 }
                             }
                         }
@@ -240,10 +240,10 @@ fn ShareLinkWidget(props: ShareLinkWidgetProps) -> Element {
     let current_url = full_url.read().clone();
 
     rsx! {
-        div { class: "share-link-widget",
-            p { class: "share-link-label", "{props.label}" }
-            div { class: "share-link-row",
-                code { class: "share-link-code", "{current_url}" }
+        div { class: "flex flex-col gap-[0.4rem]",
+            p { class: "text-[0.75rem] uppercase tracking-[0.1em] text-[var(--text-muted)]", "{props.label}" }
+            div { class: "flex items-center gap-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius)] px-4 py-[0.7rem] transition-[border-color] duration-[var(--transition)] hover:border-[rgba(110,114,251,0.25)]",
+                code { class: "flex-1 font-[var(--font)] text-[0.875rem] text-[var(--info)] overflow-hidden text-ellipsis whitespace-nowrap tracking-[0.02em]", "{current_url}" }
                 button {
                     class: if *copied.read() { "share-link-copy copied" } else { "share-link-copy" },
                     title: "Copy to clipboard",
@@ -310,9 +310,9 @@ fn P2pPanel() -> Element {
     });
 
     rsx! {
-        div { class: "p2p-panel",
+        div { class: "flex flex-col gap-5",
             if let Some(ref err) = *error.read() {
-                p { class: "error", "Signaling error: {err}" }
+                p { class: "text-[0.875rem] text-[var(--error)] px-[0.8rem] py-[0.6rem] border-l-2 border-[var(--error)] bg-[var(--error-dim)] rounded-r-[var(--radius)] tracking-[0.02em]", "Signaling error: {err}" }
             } else if let Some(ref id) = *session_id.read() {
                 WebRtcWidget { session_id: id.clone() }
             } else {
@@ -400,11 +400,11 @@ fn WebRtcWidget(session_id: String) -> Element {
     });
 
     rsx! {
-        div { class: "webrtc-widget",
+        div { class: "flex flex-col gap-5",
             // Always show the share link so the user can send it to the receiver.
             if !full_receive_url_clone.is_empty() {
-                div { class: "p2p-share-container",
-                    div { style: "margin-top: 0.75rem;",
+                div { class: "flex flex-col gap-3 [animation:fade-up_0.3s_ease_both]",
+                    div { class: "mt-3",
                         ShareLinkWidget {
                             label: "share with receiver".to_string(),
                             url: full_receive_url_clone,
@@ -420,7 +420,7 @@ fn WebRtcWidget(session_id: String) -> Element {
                 p { class: "p2p-status-connecting", "Connecting to signaling server…" }
             }
 
-            div { class: "uploader p2p-uploader",
+            div { class: "w-full",
                 label {
                     id: "drop-zone-p2p",
                     class: if *is_dragging.read() { "drop-zone dragging" } else { "drop-zone" },

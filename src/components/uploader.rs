@@ -100,7 +100,7 @@ pub fn FileUploader(props: FileUploaderProps) -> Element {
     });
 
     rsx! {
-        div { class: "uploader",
+        div { class: "w-full",
             if let Some(ref err) = *error_msg.read() {
                 div { class: "uploader-error", "{err}" }
             }

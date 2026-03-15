@@ -35,11 +35,15 @@ pub fn Receive(session_id: String) -> Element {
     });
 
     rsx! {
-        div { class: "page receive-page",
-            h2 { "Receiving file" }
-            p { "Keep this tab open — the sender is transferring directly to you." }
+        div { class: "max-w-[680px] mx-auto mt-10 px-8 pb-16 [animation:fade-up_0.4s_ease_both]",
+            h2 { class: "text-[1.6rem] font-bold tracking-[0.12em] uppercase text-[var(--text-bright)] mb-[0.6rem]",
+                "Receiving file"
+            }
+            p { class: "text-[0.9rem] text-[var(--text-muted)] mb-7 tracking-[0.02em]",
+                "Keep this tab open — the sender is transferring directly to you."
+            }
 
-            div { class: "receive-status-card",
+            div { class: "bg-[var(--surface)] border border-[var(--border)] rounded-[var(--radius-lg)] p-8 mb-6 flex flex-col items-center gap-5 text-center",
                 // Signal/antenna icon
                 svg {
                     class: "receive-icon",
@@ -55,7 +59,7 @@ pub fn Receive(session_id: String) -> Element {
                     path { d: "M12 20h.01", stroke_width: "3" }
                 }
 
-                span { class: "receive-label", "waiting for connection" }
+                span { class: "text-[0.85rem] uppercase tracking-[0.1em] text-[var(--text-muted)]", "waiting for connection" }
 
                 div { id: "p2p-status" }
                 div { id: "p2p-progress" }

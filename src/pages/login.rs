@@ -95,11 +95,11 @@ pub fn Login() -> Element {
     let is_loading = *loading.read();
 
     rsx! {
-        div { class: "login-page",
+        div { class: "relative min-h-screen flex flex-col items-center justify-center px-8 py-12 gap-6 overflow-hidden",
 
             // ── Theme toggle (top-right corner) ────────────────────────────
             button {
-                class: "theme-toggle login-theme-toggle",
+                class: "theme-toggle fixed top-[1.2rem] right-[1.5rem] z-10",
                 onclick: toggle_theme,
                 title: if *is_light.read() { "Switch to dark mode" } else { "Switch to light mode" },
                 if *is_light.read() {
@@ -130,30 +130,30 @@ pub fn Login() -> Element {
             }
 
             // ── Brand mark (replaces navbar on the login page) ──────────────
-            div { class: "login-brand",
+            div { class: "flex items-center gap-0 z-[1] [animation:fade-up_0.35s_ease_both]",
                 span { class: "login-brand-name", "HERMES" }
                 span { class: "navbar-brand-cursor" }
             }
-            p { class: "login-brand-sub", "P2P SECURE FILE TRANSFER" }
+            p { class: "text-[0.75rem] tracking-[0.2em] uppercase text-[var(--text-muted)] z-[1] [animation:fade-up_0.35s_ease_0.05s_both]", "P2P SECURE FILE TRANSFER" }
 
             // ── Card ───────────────────────────────────────────────────────
             div { class: "login-card",
 
                 // Signal status row
-                div { class: "login-signal-row",
-                    span { class: "navbar-status-dot" }
-                    span { class: "login-signal-label", "TRANSMISSION SECURED" }
+                div { class: "flex items-center gap-[0.55rem] mb-[1.6rem]",
+                    span { class: "w-[6px] h-[6px] rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)] shrink-0" }
+                    span { class: "text-[0.75rem] tracking-[0.2em] uppercase text-[var(--text-muted)]", "TRANSMISSION SECURED" }
                 }
 
                 h1 { class: "login-title", "AUTHENTICATE" }
-                p  { class: "login-subtitle", "identity verification required" }
+                p  { class: "text-[0.85rem] text-[var(--text-muted)] tracking-[0.12em] uppercase mb-[0.2rem]", "identity verification required" }
 
                 form {
-                    class: "login-form",
+                    class: "flex flex-col gap-8 mt-8",
                     onsubmit: handle_submit,
 
-                    div { class: "login-field login-field-1",
-                        label { class: "login-label", r#for: "l-email", "EMAIL ADDRESS" }
+                    div { class: "flex flex-col gap-[0.65rem] [animation:fade-up_0.4s_ease_0.12s_both]",
+                        label { class: "text-[0.75rem] font-medium tracking-[0.2em] uppercase text-[var(--text-muted)]", r#for: "l-email", "EMAIL ADDRESS" }
                         input {
                             id: "l-email",
                             class: "login-input",
@@ -167,8 +167,8 @@ pub fn Login() -> Element {
                         }
                     }
 
-                    div { class: "login-field login-field-2",
-                        label { class: "login-label", r#for: "l-pass", "PASSPHRASE" }
+                    div { class: "flex flex-col gap-[0.65rem] [animation:fade-up_0.4s_ease_0.2s_both]",
+                        label { class: "text-[0.75rem] font-medium tracking-[0.2em] uppercase text-[var(--text-muted)]", r#for: "l-pass", "PASSPHRASE" }
                         input {
                             id: "l-pass",
                             class: "login-input",
@@ -197,7 +197,7 @@ pub fn Login() -> Element {
                     }
 
                     button {
-                        class: if is_loading { "login-btn login-btn--busy" } else { "login-btn" },
+                        class: "login-btn",
                         r#type: "submit",
                         disabled: is_loading,
                         span { class: "login-btn-content",
@@ -214,13 +214,13 @@ pub fn Login() -> Element {
                     }
                 }
 
-                div { class: "login-card-footer",
+                div { class: "mt-10 pt-[1.4rem] border-t border-[var(--border)] text-[0.68rem] tracking-[0.2em] uppercase text-[var(--text-muted)] opacity-45 text-center [animation:fade-up_0.4s_ease_0.35s_both]",
                     "HERMES // SECURE FILE TRANSFER PROTOCOL"
                 }
             }
 
             // ── Page footer ─────────────────────────────────────────────────
-            footer { class: "login-page-footer",
+            footer { class: "text-[0.65rem] tracking-[0.18em] uppercase text-[var(--text-muted)] opacity-30 z-[1] [animation:fade-up_0.4s_ease_0.4s_both]",
                 "© 2026 HERMES"
             }
         }

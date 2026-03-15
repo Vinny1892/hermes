@@ -69,9 +69,6 @@ html[data-theme="light"] .navbar {
 }
 
 /* Cards lift off the paper */
-html[data-theme="light"] .upload-result-card,
-html[data-theme="light"] .file-card,
-html[data-theme="light"] .receive-status-card,
 html[data-theme="light"] .drop-zone {
   box-shadow: 0 2px 16px rgba(28, 24, 48, 0.07), 0 0 0 1px rgba(28, 24, 48, 0.04);
 }
@@ -106,10 +103,12 @@ html[data-theme="light"] .navbar-brand-cursor {
 html[data-theme="light"] ::-webkit-scrollbar-track { background: var(--bg); }
 html[data-theme="light"] ::-webkit-scrollbar-thumb { background: var(--border); }
 
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 }
 
 html { font-size: 16px; }
@@ -214,18 +213,6 @@ body {
   backdrop-filter: blur(16px);
 }
 
-.navbar-brand {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--accent);
-  text-decoration: none;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  gap: 0;
-}
-
 .navbar-brand-cursor {
   display: inline-block;
   width: 2px;
@@ -236,38 +223,9 @@ body {
   vertical-align: middle;
 }
 
-.navbar-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.navbar-status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 8px var(--accent);
-  flex-shrink: 0;
-}
-
 /* ── Pages ──────────────────────────────────────────────────────────────────── */
-.page {
-  max-width: 680px;
-  margin: 2.5rem auto;
-  padding: 0 2rem 4rem;
-  animation: fade-up 0.4s ease both;
-}
 
 /* ── Home Header ────────────────────────────────────────────────────────────── */
-.home-header {
-  margin-bottom: 2.5rem;
-}
-
 .home-title {
   font-size: clamp(2rem, 9.5vw, 3.6rem);
   font-weight: 700;
@@ -335,14 +293,6 @@ html[data-theme="light"] .easter-egg-suffix {
 }
 
 /* ── Mode Selector ──────────────────────────────────────────────────────────── */
-.mode-selector {
-  display: flex;
-  margin-bottom: 1.75rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-
 .mode-btn {
   flex: 1;
   display: flex;
@@ -400,8 +350,6 @@ html[data-theme="light"] .easter-egg-suffix {
 .mode-btn.active .mode-icon { opacity: 1; }
 
 /* ── Uploader ───────────────────────────────────────────────────────────────── */
-.uploader { width: 100%; }
-
 .uploader-error {
   font-size: 0.875rem;
   color: var(--error);
@@ -502,31 +450,6 @@ html[data-theme="light"] .easter-egg-suffix {
 }
 
 /* ── Upload Result Card ─────────────────────────────────────────────────────── */
-.upload-result {
-  margin-top: 1.5rem;
-  animation: fade-up 0.35s ease both;
-}
-
-.upload-result-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.upload-result-header {
-  padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--accent);
-  background: rgba(110, 114, 251, 0.05);
-}
-
 .upload-result-dot {
   width: 7px;
   height: 7px;
@@ -537,57 +460,7 @@ html[data-theme="light"] .easter-egg-suffix {
   animation: pulse-glow 2s ease infinite;
 }
 
-.upload-result-body {
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.upload-result-divider {
-  height: 1px;
-  background: var(--border);
-  border: none;
-}
-
 /* ── Share Link Widget ──────────────────────────────────────────────────────── */
-.share-link-widget {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.share-link-label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
-}
-
-.share-link-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.7rem 1rem;
-  transition: border-color var(--transition);
-}
-
-.share-link-row:hover { border-color: rgba(110, 114, 251, 0.25); }
-
-.share-link-code {
-  flex: 1;
-  font-family: var(--font);
-  font-size: 0.875rem;
-  color: var(--info);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  letter-spacing: 0.02em;
-}
-
 .share-link-copy {
   flex-shrink: 0;
   width: 32px;
@@ -671,97 +544,9 @@ html[data-theme="light"] .easter-egg-suffix {
 }
 
 .btn-w-full { width: 100%; }
-.download-btn { align-self: flex-start; }
 
-/* ── File Card (download page) ──────────────────────────────────────────────── */
-.file-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.file-card-header {
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.file-card-icon {
-  width: 38px;
-  height: 38px;
-  background: var(--accent-dim);
-  border: 1px solid rgba(110, 114, 251, 0.18);
-  border-radius: var(--radius);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--accent);
-  flex-shrink: 0;
-}
-
-.file-card-name {
-  font-size: 1rem;
-  font-weight: 500;
-  color: var(--text-bright);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  letter-spacing: 0.02em;
-}
-
-.file-card-body {
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.file-meta {
-  display: flex;
-  gap: 2rem;
-}
-
-.file-meta-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.file-meta-label {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--text-muted);
-}
-
-.file-meta-value {
-  font-size: 0.95rem;
-  color: var(--text);
-}
-
-/* ── Errors ─────────────────────────────────────────────────────────────────── */
-.error {
-  font-size: 0.875rem;
-  color: var(--error);
-  padding: 0.6rem 0.8rem;
-  border-left: 2px solid var(--error);
-  background: var(--error-dim);
-  border-radius: 0 var(--radius) var(--radius) 0;
-  letter-spacing: 0.02em;
-}
 
 /* ── Progress Bar ───────────────────────────────────────────────────────────── */
-.progress-track {
-  width: 100%;
-  height: 3px;
-  background: var(--border);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
 .progress-fill {
   height: 100%;
   background: var(--accent);
@@ -770,20 +555,7 @@ html[data-theme="light"] .easter-egg-suffix {
   border-radius: 2px;
 }
 
-.progress-label {
-  font-size: 0.62rem;
-  color: var(--text-muted);
-  margin-top: 0.3rem;
-  letter-spacing: 0.04em;
-}
-
 /* ── P2P ────────────────────────────────────────────────────────────────────── */
-.p2p-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
 .p2p-status-connecting {
   display: flex;
   align-items: center;
@@ -843,19 +615,6 @@ html[data-theme="light"] .easter-egg-suffix {
   opacity: 0.55;
 }
 
-.p2p-share-container {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  animation: fade-up 0.3s ease both;
-}
-
-.webrtc-widget {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
 #p2p-status {
   font-size: 0.875rem;
   color: var(--text-muted);
@@ -875,35 +634,6 @@ html[data-theme="light"] .easter-egg-suffix {
 }
 
 /* ── Receive Page ───────────────────────────────────────────────────────────── */
-.receive-page h2 {
-  font-size: 1.6rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-bright);
-  margin-bottom: 0.6rem;
-}
-
-.receive-page > p {
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  margin-bottom: 1.75rem;
-  letter-spacing: 0.02em;
-}
-
-.receive-status-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 2rem;
-  margin-bottom: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1.25rem;
-  text-align: center;
-}
-
 .receive-icon {
   width: 44px;
   height: 44px;
@@ -911,13 +641,6 @@ html[data-theme="light"] .easter-egg-suffix {
   opacity: 0.85;
   animation: pulse-glow 2.5s ease infinite;
   filter: drop-shadow(0 0 10px rgba(110, 114, 251, 0.45));
-}
-
-.receive-label {
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
 }
 
 /* ── Download Page ──────────────────────────────────────────────────────────── */
@@ -956,13 +679,6 @@ html[data-theme="light"] .easter-egg-suffix {
 
 .not-found-link:hover { color: var(--text); }
 .not-found-link::before { content: '← '; color: var(--accent); opacity: 0.5; }
-
-/* ── Navbar right cluster ───────────────────────────────────────────────────── */
-.navbar-right {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
 
 /* ── Theme toggle ───────────────────────────────────────────────────────────── */
 .theme-toggle {
@@ -1018,22 +734,7 @@ html[data-theme="light"] .easter-egg-suffix {
   transform: scale(0.93);
 }
 
-/* ── Login page theme toggle (fixed top-right) ───────────────────────────────── */
-.login-theme-toggle {
-  position: fixed;
-  top: 1.2rem;
-  right: 1.5rem;
-  z-index: 10;
-}
-
 /* ── Auth gate (shown while AuthGuard checks localStorage) ───────────────────── */
-.auth-gate {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-}
-
 .auth-gate-spinner {
   width: 22px;
   height: 22px;
@@ -1046,27 +747,8 @@ html[data-theme="light"] .easter-egg-suffix {
 /* ── Login Page ──────────────────────────────────────────────────────────────── */
 
 /* Full-screen — no navbar above, owns the whole viewport */
-.login-page {
-  position: relative;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem 2rem;
-  gap: 1.5rem;
-  overflow: hidden;
-}
 
 /* ── Brand mark ──────────────────────────────────────────────────────────────── */
-.login-brand {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  z-index: 1;
-  animation: fade-up 0.35s ease both;
-}
-
 .login-brand-name {
   font-size: clamp(1.6rem, 4vw, 2.2rem);
   font-weight: 700;
@@ -1078,15 +760,6 @@ html[data-theme="light"] .easter-egg-suffix {
 
 html[data-theme="light"] .login-brand-name {
   text-shadow: none;
-}
-
-.login-brand-sub {
-  font-size: 0.75rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  z-index: 1;
-  animation: fade-up 0.35s ease 0.05s both;
 }
 
 /* ── Ambient signal rings ────────────────────────────────────────────────────── */
@@ -1137,21 +810,6 @@ html[data-theme="light"] .login-ring {
   overflow: hidden;
 }
 
-/* ── Signal status ───────────────────────────────────────────────────────────── */
-.login-signal-row {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  margin-bottom: 1.6rem;
-}
-
-.login-signal-label {
-  font-size: 0.75rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
 /* ── Headings ────────────────────────────────────────────────────────────────── */
 .login-title {
   font-size: clamp(1.1rem, 2.5vw, 1.35rem);
@@ -1169,39 +827,6 @@ html[data-theme="light"] .login-title {
   text-shadow: none;
 }
 
-.login-subtitle {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  margin-bottom: 0.2rem;
-}
-
-/* ── Form ────────────────────────────────────────────────────────────────────── */
-.login-form {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  margin-top: 2rem;
-}
-
-.login-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  animation: fade-up 0.4s ease both;
-}
-
-.login-field-1 { animation-delay: 0.12s; }
-.login-field-2 { animation-delay: 0.2s; }
-
-.login-label {
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
 
 /* Bottom-border only — terminal feel */
 .login-input {
@@ -1344,31 +969,6 @@ html[data-theme="light"] .login-title {
   border-radius: 50%;
   animation: spin-slow 0.65s linear infinite;
   flex-shrink: 0;
-}
-
-/* ── Card footer ─────────────────────────────────────────────────────────────── */
-.login-card-footer {
-  margin-top: 2.5rem;
-  padding-top: 1.4rem;
-  border-top: 1px solid var(--border);
-  font-size: 0.68rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  opacity: 0.45;
-  text-align: center;
-  animation: fade-up 0.4s ease 0.35s both;
-}
-
-/* ── Page footer ─────────────────────────────────────────────────────────────── */
-.login-page-footer {
-  font-size: 0.65rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  opacity: 0.3;
-  z-index: 1;
-  animation: fade-up 0.4s ease 0.4s both;
 }
 
 /* ── Light theme adjustments ─────────────────────────────────────────────────── */
