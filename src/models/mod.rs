@@ -4,9 +4,11 @@
 //! [`serde::Deserialize`] so they can be sent over the network as JSON or
 //! via Dioxus server-function serialisation.
 
+pub mod auth;
 pub mod file;
 pub mod session;
 
+pub use auth::{LoginResponse, UserInfo};
 pub use file::{FileInfo, ShareLinkResponse, UploadResponse};
 pub use session::CreateSessionResponse;
 #[cfg(feature = "server")]

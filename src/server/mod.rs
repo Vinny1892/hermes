@@ -13,6 +13,7 @@
 //! | [`signaling`] | WebRTC signaling relay over WebSocket |
 //! | [`cleanup`] | Background task that deletes expired files/sessions |
 
+pub mod auth;
 pub mod cleanup;
 pub mod db;
 pub mod download;

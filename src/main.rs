@@ -54,6 +54,7 @@ async fn run_server() {
     use axum::{extract::DefaultBodyLimit, routing, Router};
     use dioxus::prelude::{DioxusRouterExt, ServeConfig};
     use server::{
+        auth::seed_admin_if_empty,
         cleanup,
         db::{init_db, set_global_pool},
         download::{download_handler, share_link_handler},
@@ -77,6 +78,10 @@ async fn run_server() {
 
     let pool = init_db().await.expect("database init failed");
     set_global_pool(pool.clone());
+
+    seed_admin_if_empty(&pool)
+        .await
+        .expect("admin seed failed");
 
     let storage_dir =
         std::env::var("STORAGE_DIR").unwrap_or_else(|_| format!("{}/storage/uploads", env!("CARGO_MANIFEST_DIR")));

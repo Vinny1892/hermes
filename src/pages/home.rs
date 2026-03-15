@@ -20,6 +20,55 @@ pub fn Home() -> Element {
     let mut upload_result = use_signal(|| Option::<UploadResponse>::None);
     let mut share_url = use_signal(|| Option::<String>::None);
     let mut share_error = use_signal(|| Option::<String>::None);
+    let mut click_count = use_signal(|| 0u32);
+    let mut easter_egg = use_signal(|| false);
+    // Quantos caracteres de " e Renato" já foram revelados (0..=9)
+    let mut chars_shown = use_signal(|| 0usize);
+
+    // Quando o easter egg dispara: revela um char a cada 80ms, segura 10s, apaga e reseta
+    use_effect(move || {
+        let triggered = *easter_egg.read();
+        let already_started = *chars_shown.read() > 0;
+        if triggered && !already_started {
+            spawn(async move {
+                // Reveal: um caractere a cada 80ms
+                for i in 1usize..=9 {
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        let mut ev = eval(
+                            "await new Promise(r => setTimeout(r, 80)); dioxus.send(true);"
+                        );
+                        let _ = ev.recv::<bool>().await;
+                    }
+                    chars_shown.set(i);
+                }
+                // Segura por 10s
+                #[cfg(target_arch = "wasm32")]
+                {
+                    let mut ev = eval(
+                        "await new Promise(r => setTimeout(r, 5000)); dioxus.send(true);"
+                    );
+                    let _ = ev.recv::<bool>().await;
+                }
+                // Apaga: um caractere a cada 60ms (ligeiramente mais rápido)
+                for i in (0usize..9).rev() {
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        let mut ev = eval(
+                            "await new Promise(r => setTimeout(r, 60)); dioxus.send(true);"
+                        );
+                        let _ = ev.recv::<bool>().await;
+                    }
+                    if i == 0 {
+                        // Reseta antes de zerar chars para evitar re-trigger
+                        easter_egg.set(false);
+                        click_count.set(0);
+                    }
+                    chars_shown.set(i);
+                }
+            });
+        }
+    });
 
     let on_uploaded = move |resp: UploadResponse| {
         upload_result.set(Some(resp));
@@ -39,13 +88,29 @@ pub fn Home() -> Element {
         }
     };
 
+    // Texto visível do easter egg (" e Renato", um char por vez)
+    let egg_on = *easter_egg.read();
+    let egg_text = &" e Renato"[..*chars_shown.read()];
+
     rsx! {
         div { class: "page home-page",
 
             // ── Header ─────────────────────────────────────────────────────
             div { class: "home-header",
-                h1 { class: "home-title",
+                h1 {
+                    class: if egg_on { "home-title home-title-egg" } else { "home-title" },
+                    style: "cursor: default; user-select: none;",
+                    onclick: move |_| {
+                        let n = *click_count.read() + 1;
+                        click_count.set(n);
+                        if n >= 10 {
+                            easter_egg.set(true);
+                        }
+                    },
                     "HERMES"
+                    if egg_on {
+                        span { class: "easter-egg-suffix", "{egg_text}" }
+                    }
                     span { class: "home-cursor", "_" }
                 }
                 p { class: "tagline", "point-to-point · server-cached · encrypted" }

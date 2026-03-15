@@ -9,7 +9,35 @@
 
 use dioxus::prelude::*;
 
-use crate::models::{CreateSessionResponse, FileInfo, ShareLinkResponse};
+use crate::models::{CreateSessionResponse, FileInfo, LoginResponse, ShareLinkResponse, UserInfo};
+
+// ── Authentication ────────────────────────────────────────────────────────────
+
+/// Validates `email` + `password` and returns a 24-hour session token.
+///
+/// The token must be stored client-side (e.g. `localStorage`) and passed to
+/// [`get_session_user`] to authenticate subsequent requests.
+///
+/// # Errors
+///
+/// Returns [`ServerFnError`] with the message `"invalid credentials"` on wrong
+/// email or password (deliberately vague to avoid user enumeration).
+#[server]
+pub async fn login_user(email: String, password: String) -> Result<LoginResponse, ServerFnError> {
+    crate::server::auth::login(crate::server::db::global_pool(), &email, &password)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))
+}
+
+/// Resolves a session `token` to the owning user's info.
+///
+/// Returns `Err` if the token is unknown or has expired.
+#[server]
+pub async fn get_session_user(token: String) -> Result<UserInfo, ServerFnError> {
+    crate::server::auth::validate_session(crate::server::db::global_pool(), &token)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))
+}
 
 // ── File info ─────────────────────────────────────────────────────────────────
 
