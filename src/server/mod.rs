@@ -15,6 +15,7 @@
 
 pub mod auth;
 pub mod cleanup;
+pub mod config;
 pub mod db;
 pub mod download;
 pub mod sessions;

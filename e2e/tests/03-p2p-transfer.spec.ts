@@ -2,7 +2,7 @@ import { test, expect, Browser } from '@playwright/test';
 import { writeFileSync } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { waitForWasm, waitForP2pStatus } from '../fixtures/helpers';
+import { waitForWasm, waitForP2pStatus, STORAGE_STATE } from '../fixtures/helpers';
 
 // Generate a ~200 KB binary fixture once per run
 const FIXTURE_MEDIUM = path.join(os.tmpdir(), 'hermes-e2e-medium.bin');
@@ -17,6 +17,7 @@ test.beforeAll(() => {
 /**
  * Helper: navigate to home, select P2P mode, wait for the receiver URL.
  * Returns the receiver path (e.g. "/receive/{uuid}").
+ * Assumes the page's context already has the auth token (via storageState).
  */
 async function setupSenderAndGetReceiverPath(page: import('@playwright/test').Page): Promise<string> {
   await page.goto('/');
@@ -51,14 +52,13 @@ test.describe('P2P WebRTC transfer', () => {
     // Give this test extra time: WASM hydration × 2 + WebSocket setup
     test.setTimeout(120_000);
 
-    const senderCtx = await browser.newContext();
-    const receiverCtx = await browser.newContext();
+    const senderCtx = await browser.newContext({ storageState: STORAGE_STATE });
+    const receiverCtx = await browser.newContext({ storageState: STORAGE_STATE });
 
     try {
       const senderPage = await senderCtx.newPage();
       const receiverPath = await setupSenderAndGetReceiverPath(senderPage);
 
-      // Receiver navigates to the session URL
       const receiverPage = await receiverCtx.newPage();
       await receiverPage.goto(receiverPath);
       await waitForWasm(receiverPage, '.receive-status-card');
@@ -81,8 +81,8 @@ test.describe('P2P WebRTC transfer', () => {
   }) => {
     test.setTimeout(180_000);
 
-    const senderCtx = await browser.newContext();
-    const receiverCtx = await browser.newContext();
+    const senderCtx = await browser.newContext({ storageState: STORAGE_STATE });
+    const receiverCtx = await browser.newContext({ storageState: STORAGE_STATE });
 
     try {
       // --- Sender setup ---

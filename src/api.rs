@@ -9,7 +9,9 @@
 
 use dioxus::prelude::*;
 
-use crate::models::{CreateSessionResponse, FileInfo, LoginResponse, ShareLinkResponse, UserInfo};
+use crate::models::{
+    AppConfigEntry, CreateSessionResponse, FileInfo, LoginResponse, ShareLinkResponse, UserInfo,
+};
 
 // ── Authentication ────────────────────────────────────────────────────────────
 
@@ -26,7 +28,15 @@ use crate::models::{CreateSessionResponse, FileInfo, LoginResponse, ShareLinkRes
 pub async fn login_user(email: String, password: String) -> Result<LoginResponse, ServerFnError> {
     crate::server::auth::login(crate::server::db::global_pool(), &email, &password)
         .await
-        .map_err(|e| ServerFnError::new(e.to_string()))
+        .map_err(|e| {
+            let msg = e.to_string();
+            if msg == "invalid credentials" {
+                ServerFnError::new("invalid email or password")
+            } else {
+                tracing::error!("login error: {e}");
+                ServerFnError::new("service unavailable, please try again")
+            }
+        })
 }
 
 /// Resolves a session `token` to the owning user's info.
@@ -109,6 +119,49 @@ pub async fn generate_share_link(file_id: String) -> Result<ShareLinkResponse, S
         token,
         expires_at,
     })
+}
+
+// ── App config ────────────────────────────────────────────────────────────────
+
+/// Returns all rows from `server_config` as a list of `{key, value}` pairs.
+#[server]
+pub async fn get_app_config() -> Result<Vec<AppConfigEntry>, ServerFnError> {
+    let pool = crate::server::db::global_pool();
+    let rows = sqlx::query_as::<_, (String, String)>(
+        "SELECT key, value FROM server_config ORDER BY key",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| ServerFnError::new(e.to_string()))?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(key, value)| AppConfigEntry { key, value })
+        .collect())
+}
+
+/// Update a single config key in `server_config`.
+///
+/// Only keys already present in the table can be updated (unknown keys are
+/// rejected) to prevent arbitrary writes.
+#[server]
+pub async fn set_app_config(key: String, value: String) -> Result<(), ServerFnError> {
+    let pool = crate::server::db::global_pool();
+
+    // Only allow updating keys that already exist (seeded at boot).
+    let exists: bool = sqlx::query_scalar("SELECT COUNT(*) > 0 FROM server_config WHERE key = ?")
+        .bind(&key)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?;
+
+    if !exists {
+        return Err(ServerFnError::new(format!("unknown config key: {key}")));
+    }
+
+    crate::server::config::db_set(pool, &key, &value)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))
 }
 
 // ── P2P sessions ──────────────────────────────────────────────────────────────

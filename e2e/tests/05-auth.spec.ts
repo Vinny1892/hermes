@@ -45,16 +45,15 @@ test.describe('Login page — structure', () => {
     await expect(page.locator('.login-btn')).toContainText('INITIATE CONNECTION');
   });
 
-  test('navbar shows the Login link', async ({ page }) => {
+  test('unauthenticated visit to home redirects to /login', async ({ page }) => {
     await page.goto(HOME_URL);
-    await waitForWasm(page, '.navbar-login-link');
-    await expect(page.locator('.navbar-login-link')).toBeVisible();
+    await page.waitForURL('**/login', { timeout: 10_000 });
+    await waitForWasm(page, '.login-card');
+    await expect(page.locator('.login-card')).toBeVisible();
   });
 
-  test('navbar Login link navigates to /login', async ({ page }) => {
-    await page.goto(HOME_URL);
-    await waitForWasm(page, '.navbar-login-link');
-    await page.locator('.navbar-login-link').click();
+  test('/login page renders at the /login URL', async ({ page }) => {
+    await page.goto(LOGIN_URL);
     await waitForWasm(page, '.login-card');
     expect(page.url()).toContain('/login');
   });
@@ -96,10 +95,7 @@ test.describe('Login page — invalid credentials', () => {
     await gotoLogin(page);
     await fillAndSubmit(page, 'nobody@example.com', 'wrongpassword');
 
-    // Button enters loading state first
-    await expect(page.locator('.login-btn--busy')).toBeVisible({ timeout: 5_000 });
-
-    // Then error appears and button reverts
+    // Error appears and button is not in loading state anymore
     await expect(page.locator('.login-error')).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('.login-btn--busy')).toHaveCount(0);
   });
@@ -139,11 +135,19 @@ test.describe('Login page — invalid credentials', () => {
 test.describe('Login page — UX', () => {
   test('inputs are disabled while the request is in-flight', async ({ page }) => {
     await gotoLogin(page);
+
+    // Delay the POST so we can observe the loading / disabled state.
+    await page.route('**', async (route) => {
+      if (route.request().method() === 'POST') {
+        await new Promise<void>((r) => setTimeout(r, 400));
+      }
+      await route.continue();
+    });
+
     await fillAndSubmit(page, 'user@example.com', 'password');
 
-    // Immediately after click the button should be in loading state
-    const busyBtn = page.locator('.login-btn--busy');
-    await expect(busyBtn).toBeVisible({ timeout: 5_000 });
+    // Button should be in loading state while the (delayed) request is in-flight
+    await expect(page.locator('.login-btn--busy')).toBeVisible({ timeout: 5_000 });
 
     // Inputs must be disabled while busy
     await expect(page.locator('#l-email')).toBeDisabled();
@@ -162,7 +166,7 @@ test.describe('Login page — UX', () => {
     await page.locator('#l-pass').fill('wrongpassword');
     await page.locator('#l-pass').press('Enter');
 
-    // Form was submitted (button enters loading state)
-    await expect(page.locator('.login-btn--busy')).toBeVisible({ timeout: 5_000 });
+    // Form was submitted — an error appears (proves the request went through)
+    await expect(page.locator('.login-error')).toBeVisible({ timeout: 10_000 });
   });
 });

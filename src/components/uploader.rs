@@ -122,7 +122,7 @@ pub fn FileUploader(props: FileUploaderProps) -> Element {
                             {
                                 let script = r#"
                                     (async () => {
-                                        const input = event.target;
+                                        const input = document.querySelector('#drop-zone-server input[type="file"]');
                                         for (const file of input.files) {
                                             const fd = new FormData();
                                             fd.append("file", file);

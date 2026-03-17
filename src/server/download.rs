@@ -15,6 +15,7 @@ use axum::{
 };
 use uuid::Uuid;
 
+use super::storage::BackendKind;
 use super::upload::AppState;
 
 /// Handles `GET /f/{file_id}`.
@@ -34,8 +35,8 @@ pub async fn download_handler(
     let now = chrono::Utc::now().to_rfc3339();
     let id_str = file_id.to_string();
 
-    let row = sqlx::query_as::<_, (String, String, String)>(
-        "SELECT filename, mime_type, storage_key
+    let row = sqlx::query_as::<_, (String, String, String, String)>(
+        "SELECT filename, mime_type, storage_key, backend
          FROM files WHERE id = ? AND expires_at > ?",
     )
     .bind(&id_str)
@@ -45,10 +46,23 @@ pub async fn download_handler(
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
     .ok_or_else(|| (StatusCode::NOT_FOUND, "file not found or expired".to_owned()))?;
 
-    let (filename, mime_type, storage_key) = row;
+    let (filename, mime_type, storage_key, backend_str) = row;
 
-    let data = state
-        .storage
+    let kind = BackendKind::from_db(&backend_str).ok_or_else(|| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("unknown backend: {backend_str}"),
+        )
+    })?;
+
+    let backend = state.storage.backend_for(kind).ok_or_else(|| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("backend '{backend_str}' is not configured"),
+        )
+    })?;
+
+    let data = backend
         .get(&storage_key)
         .await
         .map_err(|e| (StatusCode::NOT_FOUND, e.to_string()))?;

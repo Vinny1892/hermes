@@ -6,11 +6,11 @@ import { uploadViaApi, waitForWasm } from '../fixtures/helpers';
 const FIXTURE_SMALL = path.resolve(__dirname, '../test-fixtures/small.txt');
 
 test.describe('Server upload flow', () => {
+
   test('home page renders mode selector after WASM hydration', async ({ page }) => {
     await page.goto('/');
     await waitForWasm(page, '.mode-selector');
     await expect(page.locator('.mode-selector')).toBeVisible();
-    // Both mode buttons should be present
     await expect(page.locator('.mode-btn')).toHaveCount(2);
   });
 
@@ -31,7 +31,6 @@ test.describe('Server upload flow', () => {
 
     await expect(page.locator('.file-card')).toBeVisible();
     await expect(page.locator('.file-card-name')).toContainText('small.txt');
-    // Size metadata should mention bytes
     await expect(page.locator('.file-meta-value').first()).toBeVisible();
   });
 

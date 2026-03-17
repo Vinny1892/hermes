@@ -34,7 +34,7 @@ async fn insert_user(
 #[tokio::test]
 async fn seed_creates_admin_when_table_empty() {
     let pool = test_pool().await;
-    auth::seed_admin_if_empty(&pool).await.unwrap();
+    auth::seed_admin_if_empty(&pool, "admin@hermes.local", None).await.unwrap();
 
     let (email, role): (String, String) =
         sqlx::query_as("SELECT email, role FROM users LIMIT 1")
@@ -49,8 +49,8 @@ async fn seed_creates_admin_when_table_empty() {
 #[tokio::test]
 async fn seed_is_idempotent_when_users_exist() {
     let pool = test_pool().await;
-    auth::seed_admin_if_empty(&pool).await.unwrap();
-    auth::seed_admin_if_empty(&pool).await.unwrap(); // must not insert a second row
+    auth::seed_admin_if_empty(&pool, "admin@hermes.local", None).await.unwrap();
+    auth::seed_admin_if_empty(&pool, "admin@hermes.local", None).await.unwrap(); // must not insert a second row
 
     let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
         .fetch_one(&pool)

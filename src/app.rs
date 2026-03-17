@@ -3,12 +3,13 @@
 use dioxus::prelude::*;
 use dioxus::document::eval;
 
-use crate::pages::{Download, Home, Login, Receive};
+use crate::pages::{Download, Home, Login, Receive, Settings};
 
 const THEME_INIT: &str = "(function(){\
     if(localStorage.getItem('hermes-theme')==='light')\
         document.documentElement.setAttribute('data-theme','light');\
 })();";
+
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
@@ -27,12 +28,23 @@ pub enum Route {
             Download { file_id: String },
             #[route("/receive/:session_id")]
             Receive { session_id: String },
+            #[route("/settings")]
+            Settings {},
 }
 
 #[component]
 pub fn App() -> Element {
+    // Set a sentinel on <html> after WASM hydrates. SSR never sets this.
+    // Used by Playwright tests to reliably detect WASM readiness.
+    use_effect(move || {
+        #[cfg(target_arch = "wasm32")]
+        spawn(async move {
+            let _ = eval("document.documentElement.setAttribute('data-wasm-ready','true')");
+        });
+    });
+
     rsx! {
-        document::Link { rel: "icon", href: asset!("/assets/favicon.ico") }
+        document::Link { rel: "icon", r#type: "image/png", href: asset!("/assets/favicon.png") }
         document::Link { rel: "stylesheet", href: asset!("/assets/main.css") }
         document::Link { rel: "stylesheet", href: asset!("/assets/tailwind.css") }
         document::Script { "{THEME_INIT}" }
@@ -74,26 +86,43 @@ fn AuthGuard() -> Element {
 
 #[component]
 fn Navbar() -> Element {
-    let mut is_light = use_signal(|| false);
+    let mut is_light = use_signal(|| {
+        #[cfg(target_arch = "wasm32")]
+        {
+            web_sys::window()
+                .and_then(|w| w.local_storage().ok().flatten())
+                .and_then(|s| s.get_item("hermes-theme").ok().flatten())
+                .map(|v| v == "light")
+                .unwrap_or(false)
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        { false }
+    });
 
-    // Sync button icon with the theme already applied by THEME_INIT
-    use_effect(move || {
-        spawn(async move {
-            let mut ev = eval("dioxus.send(localStorage.getItem('hermes-theme')==='light');");
-            if let Ok(light) = ev.recv::<bool>().await {
-                is_light.set(light);
-            }
-        });
+    let is_admin = use_signal(|| {
+        #[cfg(target_arch = "wasm32")]
+        {
+            web_sys::window()
+                .and_then(|w| w.local_storage().ok().flatten())
+                .and_then(|s| s.get_item("hermes-role").ok().flatten())
+                .map(|r| r == "ADMIN")
+                .unwrap_or(false)
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        { false }
     });
 
     let logout = move |_| {
-        spawn(async move {
-            let _ = eval(r#"
-                localStorage.removeItem('hermes-token');
-                localStorage.removeItem('hermes-role');
-                window.location.replace('/login');
-            "#);
-        });
+        #[cfg(target_arch = "wasm32")]
+        {
+            if let Some(win) = web_sys::window() {
+                if let Some(storage) = win.local_storage().ok().flatten() {
+                    let _ = storage.remove_item("hermes-token");
+                    let _ = storage.remove_item("hermes-role");
+                }
+                let _ = win.location().replace("/login");
+            }
+        }
     };
 
     let toggle = move |_| {
@@ -105,25 +134,35 @@ fn Navbar() -> Element {
             } else {
                 ("document.documentElement.removeAttribute('data-theme')", "dark")
             };
-            let js = format!(
-                "const a=()=>{{ {set_theme}; localStorage.setItem('hermes-theme','{store_val}'); }};\
-                 document.startViewTransition ? document.startViewTransition(a) : a();"
-            );
+            let js = format!("{set_theme}; localStorage.setItem('hermes-theme','{store_val}');");
             let _ = eval(&js);
         });
     };
 
     rsx! {
         nav { class: "navbar",
-            Link { to: Route::Home {}, class: "flex items-center gap-0 text-[1.1rem] font-bold text-[var(--accent)] no-underline tracking-[0.28em] uppercase",
-                "HERMES"
-                span { class: "navbar-brand-cursor" }
+            Link { to: Route::Home {}, class: "navbar-brand flex items-center no-underline",
+                img { src: asset!("/assets/logo-dark.png"),  alt: "Hermes", class: "h-[52px] w-auto block rounded-md [[data-theme=light]_&]:hidden" }
+                img { src: asset!("/assets/logo-light.png"), alt: "Hermes", class: "h-[52px] w-auto hidden rounded-md [[data-theme=light]_&]:block" }
             }
             div { class: "flex items-center gap-3",
                 div { class: "flex items-center gap-2 text-[0.75rem] text-[var(--text-muted)] tracking-[0.1em] uppercase",
                     div { class: "w-[6px] h-[6px] rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent)] shrink-0" }
                     span { "secure transfer" }
                 }
+                Link {
+                    to: Route::Settings {},
+                    class: if *is_admin.read() { "navbar-logout" } else { "hidden" },
+                    title: "Settings",
+                    svg {
+                            fill: "none", stroke: "currentColor",
+                            view_box: "0 0 24 24", stroke_width: "2",
+                            stroke_linecap: "round", stroke_linejoin: "round",
+                            style: "width:17px;height:17px",
+                            path { d: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" }
+                            path { d: "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" }
+                        }
+                    }
                 button {
                     class: "navbar-logout",
                     onclick: logout,

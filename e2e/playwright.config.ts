@@ -1,4 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
+import { STORAGE_STATE } from './fixtures/helpers';
+
+// Chrome flags needed for WebRTC loopback tests.
+const chromiumArgs = [
+  '--use-fake-ui-for-media-stream',
+  '--allow-loopback-in-peer-connection',
+  '--disable-web-security',
+];
 
 export default defineConfig({
   testDir: './tests',
@@ -19,18 +27,40 @@ export default defineConfig({
   },
 
   projects: [
+    // ── 1. Auth setup ────────────────────────────────────────────────────────
+    // Logs in once and saves localStorage state so other tests can skip login.
+    {
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/,
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: { args: chromiumArgs },
+      },
+    },
+
+    // ── 2. Authenticated tests ───────────────────────────────────────────────
+    // Pre-loads the saved auth state — no login per test.
     {
       name: 'chromium',
       use: {
         ...devices['Desktop Chrome'],
-        launchOptions: {
-          args: [
-            '--use-fake-ui-for-media-stream',
-            '--allow-loopback-in-peer-connection',
-            '--disable-web-security',
-          ],
-        },
+        storageState: STORAGE_STATE,
+        launchOptions: { args: chromiumArgs },
       },
+      dependencies: ['setup'],
+      // Auth-specific spec files and setup run elsewhere.
+      testIgnore: /(?:0[25]-auth\.spec|auth\.setup)\.ts/,
+    },
+
+    // ── 3. Auth-flow tests ───────────────────────────────────────────────────
+    // Must start unauthenticated — do NOT pre-load storage state.
+    {
+      name: 'chromium-no-auth',
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: { args: chromiumArgs },
+      },
+      testMatch: /0[25]-auth\.spec\.ts/,
     },
   ],
 });

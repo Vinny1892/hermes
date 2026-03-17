@@ -44,8 +44,9 @@ src/
   components/      — reusable UI: FileUploader, ProgressBar
   pages/           — route components: Home, Download, Receive
   server/          — server-only modules (cfg(not(target_arch = "wasm32")))
+    config.rs      — HermesConfig: loads hermes.toml + env-var overrides
     db.rs          — SQLite pool init + global pool accessor
-    storage/       — StorageBackend trait + LocalStorage implementation
+    storage/       — StorageBackend trait, LocalStorage, S3Storage, StorageRouter
     upload.rs      — POST /api/upload Axum handler + insert_test_file helper
     download.rs    — GET /f/:file_id + GET /share/:token handlers
     sessions.rs    — P2P session CRUD (create, get, close, purge)
@@ -87,7 +88,7 @@ Available on both WASM and server. On the client they become HTTP calls; on the 
 ### State management
 
 - The SQLite pool is initialised once in `main` via `server::db::init_db()` and stored in a `OnceLock` (`server::db::global_pool()`). Server functions access it through this global.
-- Axum handlers receive state via `State<AppState>` (contains pool + `Arc<dyn StorageBackend>`).
+- Axum handlers receive state via `State<AppState>` (contains pool + `Arc<StorageRouter>`).
 - The `SignalingRegistry` (WebRTC relay map) is shared across handlers via Axum `State`.
 
 ### WebRTC P2P (`assets/webrtc.js`)
@@ -104,6 +105,12 @@ The Rust layer only handles signaling session lifecycle. The actual WebRTC conne
 - `#[cfg(target_arch = "wasm32")]` guards client-only code (eval calls, JS upload)
 - `#[cfg(not(target_arch = "wasm32"))]` gates the entire `server/` module
 - Server functions in `api.rs` are not cfg-gated — the `#[server]` macro splits them
+
+## Styling
+
+**Always use Tailwind CSS first.** Plain CSS in `main.css` is last resort — only for things Tailwind cannot express (e.g. complex `@keyframes`, pseudo-element `content`, third-party overrides).
+
+For `data-theme` variants use the arbitrary variant syntax: `[[data-theme=light]_&]:block`.
 
 ## Dioxus 0.7 API Notes
 
@@ -128,14 +135,42 @@ SQLite via `sqlx` (no compile-time macros — uses `sqlx::query(...)` to avoid r
 
 For tests: `server::db::test_pool()` creates an in-memory DB with all migrations applied.
 
-## Environment Variables
+## Configuration
 
-Configurable via `.env` file (loaded by `dotenvy`) or shell env vars. Shell vars take precedence. When using `dx serve`, HOST/PORT are managed by the Dioxus CLI.
+The primary configuration source is **`hermes.toml`** in the project root (or the path in `HERMES_CONFIG`). Environment variables always override TOML values. `.env` files are also loaded via `dotenvy`.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_URL` | `sqlite:hermes.db` | SQLite file path |
-| `HOST` | `0.0.0.0` | Bind address (production only; `dx serve` overrides) |
-| `PORT` | `8080` | Listen port (production only; `dx serve` overrides) |
-| `BASE_URL` | `http://localhost:$PORT` | Used to build WebSocket URLs in P2P sessions |
-| `RUST_LOG` | — | Log filter (e.g. `hermes=debug`) |
+### hermes.toml sections
+
+```toml
+[server]    host, port, base_url, log
+[database]  url
+[admin]     email, password (optional; random if absent)
+[storage]   default_quota ("1GB" / "unlimited"), default_local_ratio (0–100)
+[storage.local]  path          # present = local backend enabled
+[storage.s3]     bucket, region, endpoint?, access_key_id, secret_access_key
+```
+
+When both `[storage.local]` and `[storage.s3]` are present the `StorageRouter` distributes uploads according to `default_local_ratio` and per-user overrides in `user_storage_config`.
+
+### Environment variable → TOML mapping
+
+| Env var | TOML field |
+|---------|-----------|
+| `HERMES_CONFIG` | — path to config file (default: `hermes.toml`) |
+| `HOST` | `server.host` |
+| `PORT` | `server.port` |
+| `BASE_URL` | `server.base_url` |
+| `RUST_LOG` | `server.log` |
+| `DATABASE_URL` | `database.url` |
+| `ADMIN_EMAIL` | `admin.email` |
+| `ADMIN_PASSWORD` | `admin.password` |
+| `STORAGE_DEFAULT_QUOTA` | `storage.default_quota` |
+| `STORAGE_DEFAULT_LOCAL_RATIO` | `storage.default_local_ratio` |
+| `STORAGE_DIR` | `storage.local.path` |
+| `S3_BUCKET` | `storage.s3.bucket` |
+| `S3_REGION` | `storage.s3.region` |
+| `S3_ENDPOINT` | `storage.s3.endpoint` |
+| `AWS_ACCESS_KEY_ID` | `storage.s3.access_key_id` |
+| `AWS_SECRET_ACCESS_KEY` | `storage.s3.secret_access_key` |
+
+When using `dx serve`, HOST/PORT are managed by the Dioxus CLI and take precedence automatically.

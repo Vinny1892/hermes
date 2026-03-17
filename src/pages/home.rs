@@ -117,14 +117,14 @@ pub fn Home() -> Element {
             }
 
             // ── Mode Selector ──────────────────────────────────────────────
-            div { class: "flex mb-7 border border-[var(--border)] rounded-[var(--radius)] overflow-hidden",
+            div { class: "mode-selector flex mb-7 border border-[var(--border)] rounded-[var(--radius)] overflow-hidden",
                 label {
                     class: if *mode.read() == TransferMode::ServerUpload { "mode-btn active" } else { "mode-btn" },
+                    onclick: move |_| mode.set(TransferMode::ServerUpload),
                     input {
                         r#type: "radio",
                         name: "mode",
                         checked: *mode.read() == TransferMode::ServerUpload,
-                        onchange: move |_| mode.set(TransferMode::ServerUpload),
                     }
                     svg {
                         class: "mode-icon",
@@ -142,11 +142,11 @@ pub fn Home() -> Element {
                 }
                 label {
                     class: if *mode.read() == TransferMode::P2P { "mode-btn active" } else { "mode-btn" },
+                    onclick: move |_| mode.set(TransferMode::P2P),
                     input {
                         r#type: "radio",
                         name: "mode",
                         checked: *mode.read() == TransferMode::P2P,
-                        onchange: move |_| mode.set(TransferMode::P2P),
                     }
                     svg {
                         class: "mode-icon",
@@ -170,7 +170,7 @@ pub fn Home() -> Element {
                 FileUploader { on_uploaded }
 
                 if let Some(ref resp) = *upload_result.read() {
-                    div { class: "mt-6 [animation:fade-up_0.35s_ease_both]",
+                    div { class: "upload-result mt-6 [animation:fade-up_0.35s_ease_both]",
                         div { class: "bg-[var(--surface)] border border-[var(--border)] rounded-[var(--radius-lg)] overflow-hidden",
                             div { class: "px-5 py-3 border-b border-[var(--border)] flex items-center gap-2 text-[0.8rem] uppercase tracking-[0.12em] text-[var(--accent)] bg-[rgba(110,114,251,0.05)]",
                                 div { class: "upload-result-dot" }
@@ -243,7 +243,7 @@ fn ShareLinkWidget(props: ShareLinkWidgetProps) -> Element {
         div { class: "flex flex-col gap-[0.4rem]",
             p { class: "text-[0.75rem] uppercase tracking-[0.1em] text-[var(--text-muted)]", "{props.label}" }
             div { class: "flex items-center gap-2 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius)] px-4 py-[0.7rem] transition-[border-color] duration-[var(--transition)] hover:border-[rgba(110,114,251,0.25)]",
-                code { class: "flex-1 font-[var(--font)] text-[0.875rem] text-[var(--info)] overflow-hidden text-ellipsis whitespace-nowrap tracking-[0.02em]", "{current_url}" }
+                code { class: "share-link-code flex-1 font-[var(--font)] text-[0.875rem] text-[var(--info)] overflow-hidden text-ellipsis whitespace-nowrap tracking-[0.02em]", "{current_url}" }
                 button {
                     class: if *copied.read() { "share-link-copy copied" } else { "share-link-copy" },
                     title: "Copy to clipboard",
@@ -403,7 +403,7 @@ fn WebRtcWidget(session_id: String) -> Element {
         div { class: "flex flex-col gap-5",
             // Always show the share link so the user can send it to the receiver.
             if !full_receive_url_clone.is_empty() {
-                div { class: "flex flex-col gap-3 [animation:fade-up_0.3s_ease_both]",
+                div { class: "p2p-share-container flex flex-col gap-3 [animation:fade-up_0.3s_ease_both]",
                     div { class: "mt-3",
                         ShareLinkWidget {
                             label: "share with receiver".to_string(),

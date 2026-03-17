@@ -3,8 +3,8 @@
 //! # HTTP endpoint
 //!
 //! `POST /api/upload` accepts a `multipart/form-data` body with a single
-//! `file` field. The file is stored in the configured [`StorageBackend`],
-//! metadata is persisted to SQLite, and a JSON [`UploadResponse`] is returned.
+//! `file` field. The file is stored via the [`StorageRouter`], metadata is
+//! persisted to SQLite, and a JSON [`UploadResponse`] is returned.
 //!
 //! Files expire **7 days** after upload and are removed by the cleanup task.
 //!
@@ -28,14 +28,14 @@ use uuid::Uuid;
 
 use crate::{
     models::UploadResponse,
-    server::storage::StorageBackend,
+    server::storage::StorageRouter,
 };
 
 /// Shared application state injected into Axum handlers.
 #[derive(Clone)]
 pub struct AppState {
     pub db: SqlitePool,
-    pub storage: Arc<dyn StorageBackend>,
+    pub storage: Arc<StorageRouter>,
 }
 
 // ── Axum handler ─────────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ pub async fn upload_handler(
             .await
             .map_err(|e| (StatusCode::BAD_REQUEST, e.to_string()))?;
 
-        return persist_upload(&state, filename, content_type, data)
+        return persist_upload(&state, filename, content_type, data, None)
             .await
             .map(Json)
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()));
@@ -87,12 +87,16 @@ pub async fn upload_handler(
 
 // ── Shared helper (also used by the server function below) ───────────────────
 
-/// Stores `data` in the backend and inserts a [`FileRecord`] into the database.
+/// Stores `data` via the router and inserts a [`FileRecord`] into the database.
+///
+/// `user_id` is stored with the record for quota tracking; pass `None` for
+/// anonymous uploads.
 pub(crate) async fn persist_upload(
     state: &AppState,
     filename: String,
     mime_type: String,
     data: Bytes,
+    user_id: Option<&str>,
 ) -> anyhow::Result<UploadResponse> {
     let file_id = Uuid::new_v4();
     let key = file_id.to_string();
@@ -101,19 +105,26 @@ pub(crate) async fn persist_upload(
     let expires = (Utc::now() + chrono::Duration::days(7)).to_rfc3339();
     let id_str = file_id.to_string();
 
-    state.storage.put(&key, data).await?;
+    let (backend_kind, backend) = state
+        .storage
+        .route_upload(&state.db, user_id, data.len() as u64)
+        .await?;
+
+    backend.put(&key, data).await?;
 
     sqlx::query(
-        "INSERT INTO files (id, filename, size, mime_type, backend, storage_key, created_at, expires_at)
-         VALUES (?, ?, ?, ?, 'local', ?, ?, ?)",
+        "INSERT INTO files (id, filename, size, mime_type, backend, storage_key, created_at, expires_at, user_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(&id_str)
     .bind(&filename)
     .bind(size)
     .bind(&mime_type)
+    .bind(backend_kind.as_str())
     .bind(&key)
     .bind(&now)
     .bind(&expires)
+    .bind(user_id)
     .execute(&state.db)
     .await?;
 

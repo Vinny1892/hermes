@@ -18,6 +18,20 @@ pub fn Login() -> Element {
     let mut is_light = use_signal(|| false);
     let nav = use_navigator();
 
+    #[cfg(target_arch = "wasm32")]
+    {
+        let already_logged_in = web_sys::window()
+            .and_then(|w| w.local_storage().ok().flatten())
+            .and_then(|s| s.get_item("hermes-token").ok().flatten())
+            .is_some();
+        if already_logged_in {
+            if let Some(win) = web_sys::window() {
+                let _ = win.location().replace("/");
+            }
+            return rsx! { div {} };
+        }
+    }
+
     // Restore saved theme on mount
     // Sync button icon with the theme already applied by THEME_INIT
     use_effect(move || {
@@ -82,8 +96,10 @@ pub fn Login() -> Element {
                 Err(e) => {
                     let raw = e.to_string();
                     let msg = raw
-                        .strip_prefix("ServerFnError: ")
+                        .strip_prefix("error running server function: ")
+                        .or_else(|| raw.strip_prefix("ServerFnError: "))
                         .unwrap_or(&raw)
+                        .trim_end_matches(" (details: None)")
                         .to_string();
                     error.set(Some(msg));
                     loading.set(false);
@@ -197,7 +213,7 @@ pub fn Login() -> Element {
                     }
 
                     button {
-                        class: "login-btn",
+                        class: if is_loading { "login-btn login-btn--busy" } else { "login-btn" },
                         r#type: "submit",
                         disabled: is_loading,
                         span { class: "login-btn-content",
@@ -224,5 +240,43 @@ pub fn Login() -> Element {
                 "© 2026 HERMES"
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // Mirrors the error-cleaning logic in the Err branch of handle_submit.
+    fn clean(raw: &str) -> String {
+        raw.strip_prefix("error running server function: ")
+            .or_else(|| raw.strip_prefix("ServerFnError: "))
+            .unwrap_or(raw)
+            .trim_end_matches(" (details: None)")
+            .to_string()
+    }
+
+    #[test]
+    fn strips_dioxus_wrapper_and_details_suffix() {
+        assert_eq!(
+            clean("error running server function: invalid email or password (details: None)"),
+            "invalid email or password",
+        );
+    }
+
+    #[test]
+    fn strips_server_fn_error_prefix() {
+        assert_eq!(clean("ServerFnError: some error"), "some error");
+    }
+
+    #[test]
+    fn passes_through_already_clean_message() {
+        assert_eq!(clean("invalid email or password"), "invalid email or password");
+    }
+
+    #[test]
+    fn strips_details_none_without_prefix() {
+        assert_eq!(
+            clean("service unavailable, please try again (details: None)"),
+            "service unavailable, please try again",
+        );
     }
 }

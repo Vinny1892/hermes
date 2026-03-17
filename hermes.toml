@@ -1,0 +1,42 @@
+# Hermes configuration file.
+#
+# All values shown here are the built-in defaults.
+# Environment variables always take precedence over this file.
+# See CLAUDE.md for the full env-var → TOML mapping table.
+
+[server]
+host     = "0.0.0.0"
+port     = 8080
+base_url = "http://localhost:8080"
+log      = "hermes=info"
+
+[database]
+url = "sqlite:hermes.db"
+
+[admin]
+email = "admin@hermes.local"
+# password = ""   # leave empty → a random password is generated on first boot
+
+[storage]
+# Default quota for new users.
+# Accepts: "1GB", "500MB", "2TB", "0" or "unlimited" for no limit.
+default_quota = "1GB"
+
+# Fraction (0–100) of each user's quota allocated to the local backend.
+# The remainder goes to S3.  Ignored when only one backend is configured.
+default_local_ratio = 100
+
+# ── Local filesystem backend ─────────────────────────────────────────────────
+# Section present → local backend is enabled.
+[storage.local]
+path = "./storage/uploads"
+
+# ── S3-compatible backend ────────────────────────────────────────────────────
+# Uncomment and fill in to enable the S3 backend.
+#
+# [storage.s3]
+# bucket             = "my-bucket"
+# region             = "us-east-1"
+# endpoint           = "https://s3.amazonaws.com"  # omit for AWS default
+# access_key_id      = ""
+# secret_access_key  = ""

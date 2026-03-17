@@ -53,16 +53,19 @@ export default async function setup() {
 
   const repoRoot = path.resolve(__dirname, '../..');
 
+  const useDebug = !!process.env.DEBUG_BUILD;
+  const profile = useDebug ? 'debug' : 'release';
+
   if (!process.env.SKIP_BUILD) {
-    console.log('\n[e2e] Building hermes (this may take a while)…');
-    execSync('dx build --platform web --release', {
-      cwd: repoRoot,
-      stdio: 'inherit',
-    });
+    console.log(`\n[e2e] Building hermes (${profile})…`);
+    const buildArgs = useDebug
+      ? 'dx build --platform web'
+      : 'dx build --platform web --release';
+    execSync(buildArgs, { cwd: repoRoot, stdio: 'inherit' });
   }
 
-  // dx build outputs the binary + public/ together under target/dx/hermes/release/web/
-  const bundleDir = path.join(repoRoot, 'target', 'dx', 'hermes', 'release', 'web');
+  // dx build outputs the binary + public/ together under target/dx/hermes/{profile}/web/
+  const bundleDir = path.join(repoRoot, 'target', 'dx', 'hermes', profile, 'web');
   const binaryPath = path.join(bundleDir, 'hermes');
   const baseUrl = `http://127.0.0.1:${port}`;
 
@@ -77,6 +80,8 @@ export default async function setup() {
       STORAGE_DIR: storageDir,
       BASE_URL: baseUrl,
       RUST_LOG: 'hermes=info',
+      ADMIN_EMAIL: 'admin@hermes.local',
+      ADMIN_PASSWORD: 'e2e-test-pass',
     },
     detached: false,
     stdio: ['ignore', 'inherit', 'inherit'],

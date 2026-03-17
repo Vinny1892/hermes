@@ -1,12 +1,17 @@
 //! Pluggable storage backend abstraction.
 //!
 //! All file I/O goes through the [`StorageBackend`] trait. The application
-//! currently ships [`LocalStorage`]; an S3-compatible backend can be added
-//! without touching any upload/download logic.
+//! ships [`LocalStorage`] and (when the `server` feature is enabled) an
+//! S3-compatible [`S3Storage`].  The [`StorageRouter`] dispatches to one or
+//! both backends based on user quota and configuration.
 
 pub mod local;
+pub mod router;
+pub mod s3;
 
 pub use local::LocalStorage;
+pub use router::{BackendKind, StorageRouter};
+pub use s3::S3Storage;
 
 use async_trait::async_trait;
 use bytes::Bytes;

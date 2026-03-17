@@ -36,10 +36,16 @@ pub fn verify_password(password: &str, hash: &str) -> bool {
 
 // ── First-run seed ────────────────────────────────────────────────────────────
 
-/// Creates an ADMIN user (`admin@hermes.local`) with a random password if the
-/// `users` table is empty.  Credentials are printed to the log — change them
-/// immediately after the first login.
-pub async fn seed_admin_if_empty(pool: &SqlitePool) -> Result<()> {
+/// Creates an admin user with the given `email` if the `users` table is empty.
+///
+/// If `password` is `None`, a random 16-character password is generated.
+/// Credentials are printed to the log — change them immediately after the
+/// first login.
+pub async fn seed_admin_if_empty(
+    pool: &SqlitePool,
+    email: &str,
+    password: Option<&str>,
+) -> Result<()> {
     let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
         .fetch_one(pool)
         .await?;
@@ -48,31 +54,38 @@ pub async fn seed_admin_if_empty(pool: &SqlitePool) -> Result<()> {
         return Ok(());
     }
 
-    let password = random_password(16);
-    let hash = hash_password(&password)?;
+    let generated;
+    let password = match password {
+        Some(p) => p,
+        None => {
+            generated = random_password(16);
+            &generated
+        }
+    };
+
+    let hash = hash_password(password)?;
     let id = Uuid::new_v4().to_string();
     let now = Utc::now().to_rfc3339();
 
     sqlx::query(
         "INSERT INTO users (id, email, password_hash, role, created_at, updated_at)
-         VALUES (?, 'admin@hermes.local', ?, 'ADMIN', ?, ?)",
+         VALUES (?, ?, ?, 'ADMIN', ?, ?)",
     )
     .bind(&id)
+    .bind(email)
     .bind(&hash)
     .bind(&now)
     .bind(&now)
     .execute(pool)
     .await?;
 
-    // ┌────────────────────────────────────────────────┐
-    // Use warn! so this is visible even with INFO log level
     tracing::warn!(
         "\n\
          ╔══════════════════════════════════════════════╗\n\
          ║     HERMES — FIRST-RUN ADMIN CREDENTIALS    ║\n\
          ╠══════════════════════════════════════════════╣\n\
-         ║  email   : admin@hermes.local               ║\n\
-         ║  password: {password:<37}║\n\
+         ║  email   : {email:<39}║\n\
+         ║  password: {password:<39}║\n\
          ╠══════════════════════════════════════════════╣\n\
          ║  !! Change this password after first login !!║\n\
          ╚══════════════════════════════════════════════╝"
@@ -175,7 +188,7 @@ mod tests {
     #[tokio::test]
     async fn test_seed_creates_admin() {
         let pool = test_pool().await;
-        seed_admin_if_empty(&pool).await.unwrap();
+        seed_admin_if_empty(&pool, "admin@hermes.local", None).await.unwrap();
 
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
             .fetch_one(&pool)
@@ -187,8 +200,8 @@ mod tests {
     #[tokio::test]
     async fn test_seed_is_idempotent() {
         let pool = test_pool().await;
-        seed_admin_if_empty(&pool).await.unwrap();
-        seed_admin_if_empty(&pool).await.unwrap(); // second call must not insert
+        seed_admin_if_empty(&pool, "admin@hermes.local", None).await.unwrap();
+        seed_admin_if_empty(&pool, "admin@hermes.local", None).await.unwrap(); // second call must not insert
 
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
             .fetch_one(&pool)
@@ -235,7 +248,7 @@ mod tests {
     #[tokio::test]
     async fn test_invalid_credentials() {
         let pool = test_pool().await;
-        seed_admin_if_empty(&pool).await.unwrap();
+        seed_admin_if_empty(&pool, "admin@hermes.local", None).await.unwrap();
 
         // wrong email
         assert!(login(&pool, "nobody@example.com", "pass").await.is_err());

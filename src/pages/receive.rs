@@ -43,7 +43,7 @@ pub fn Receive(session_id: String) -> Element {
                 "Keep this tab open — the sender is transferring directly to you."
             }
 
-            div { class: "bg-[var(--surface)] border border-[var(--border)] rounded-[var(--radius-lg)] p-8 mb-6 flex flex-col items-center gap-5 text-center",
+            div { class: "receive-status-card bg-[var(--surface)] border border-[var(--border)] rounded-[var(--radius-lg)] p-8 mb-6 flex flex-col items-center gap-5 text-center",
                 // Signal/antenna icon
                 svg {
                     class: "receive-icon",

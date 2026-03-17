@@ -13,3 +13,10 @@ pub use file::{FileInfo, ShareLinkResponse, UploadResponse};
 pub use session::CreateSessionResponse;
 #[cfg(feature = "server")]
 pub use session::{P2pSession, SessionState, SignalMessage};
+
+/// A single row from the `server_config` table.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct AppConfigEntry {
+    pub key: String,
+    pub value: String,
+}

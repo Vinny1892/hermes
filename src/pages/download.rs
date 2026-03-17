@@ -12,10 +12,10 @@ use crate::{api::get_file_info, app::Route};
 #[component]
 pub fn Download(file_id: String) -> Element {
     let fid = file_id.clone();
-    let info = use_resource(move || {
+    let info = use_server_future(move || {
         let id = fid.clone();
         async move { get_file_info(id).await }
-    });
+    })?;
 
     rsx! {
         div { class: "max-w-[680px] mx-auto mt-10 px-8 pb-16 [animation:fade-up_0.4s_ease_both]",
@@ -24,14 +24,16 @@ pub fn Download(file_id: String) -> Element {
                     p { class: "loading-text", "Fetching file info" }
                 },
                 Some(Err(e)) => rsx! {
-                    h2 { class: "text-[1.2rem] font-bold tracking-[0.1em] uppercase text-[var(--text-bright)] mb-2",
-                        "File not found"
+                    div { class: "error flex flex-col gap-4",
+                        h2 { class: "text-[1.2rem] font-bold tracking-[0.1em] uppercase text-[var(--text-bright)]",
+                            "File not found"
+                        }
+                        p { class: "text-[0.875rem] text-[var(--error)] px-[0.8rem] py-[0.6rem] border-l-2 border-[var(--error)] bg-[var(--error-dim)] rounded-r-[var(--radius)] tracking-[0.02em]", "{e}" }
+                        Link { to: Route::Home {}, class: "not-found-link", "Back to home" }
                     }
-                    p { class: "text-[0.875rem] text-[var(--error)] px-[0.8rem] py-[0.6rem] border-l-2 border-[var(--error)] bg-[var(--error-dim)] rounded-r-[var(--radius)] tracking-[0.02em]", "{e}" }
-                    Link { to: Route::Home {}, class: "not-found-link", "Back to home" }
                 },
                 Some(Ok(meta)) => rsx! {
-                    div { class: "bg-[var(--surface)] border border-[var(--border)] rounded-[var(--radius-lg)] overflow-hidden",
+                    div { class: "file-card bg-[var(--surface)] border border-[var(--border)] rounded-[var(--radius-lg)] overflow-hidden",
                         div { class: "px-5 py-4 border-b border-[var(--border)] flex items-center gap-3",
                             div { class: "w-[38px] h-[38px] bg-[var(--accent-dim)] border border-[rgba(110,114,251,0.18)] rounded-[var(--radius)] flex items-center justify-center text-[var(--accent)] shrink-0",
                                 svg {
@@ -46,21 +48,21 @@ pub fn Download(file_id: String) -> Element {
                                     path { d: "M14 2v6h6" }
                                 }
                             }
-                            span { class: "text-[1rem] font-medium text-[var(--text-bright)] overflow-hidden text-ellipsis whitespace-nowrap tracking-[0.02em]", "{meta.filename}" }
+                            span { class: "file-card-name text-[1rem] font-medium text-[var(--text-bright)] overflow-hidden text-ellipsis whitespace-nowrap tracking-[0.02em]", "{meta.filename}" }
                         }
                         div { class: "p-5 flex flex-col gap-5",
                             div { class: "flex gap-8",
                                 div { class: "flex flex-col gap-[0.2rem]",
                                     span { class: "text-[0.72rem] uppercase tracking-[0.12em] text-[var(--text-muted)]", "size" }
-                                    span { class: "text-[0.95rem] text-[var(--text)]", "{fmt_size(meta.size)}" }
+                                    span { class: "file-meta-value text-[0.95rem] text-[var(--text)]", "{fmt_size(meta.size)}" }
                                 }
                                 div { class: "flex flex-col gap-[0.2rem]",
                                     span { class: "text-[0.72rem] uppercase tracking-[0.12em] text-[var(--text-muted)]", "expires" }
-                                    span { class: "text-[0.95rem] text-[var(--text)]", "{fmt_expiry(&meta.expires_at)}" }
+                                    span { class: "file-meta-value text-[0.95rem] text-[var(--text)]", "{fmt_expiry(&meta.expires_at)}" }
                                 }
                             }
                             a {
-                                class: "btn self-start",
+                                class: "download-btn btn self-start",
                                 href: "/f/{file_id}",
                                 download: "{meta.filename}",
                                 svg {

@@ -20,29 +20,34 @@ use tempfile::tempdir;
 use tower::ServiceExt;
 
 use hermes::server::{
+    config::StorageAppConfig,
     db::test_pool,
     download::{download_handler, share_link_handler},
-    storage::{LocalStorage, StorageBackend},
+    storage::{BackendKind, LocalStorage, StorageRouter},
     upload::{insert_test_file, upload_handler, AppState},
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-async fn setup() -> (Router, sqlx::SqlitePool, Arc<dyn StorageBackend>, tempfile::TempDir) {
+async fn setup() -> (Router, sqlx::SqlitePool, Arc<StorageRouter>, tempfile::TempDir) {
     let dir = tempdir().unwrap();
-    let storage: Arc<dyn StorageBackend> =
-        Arc::new(LocalStorage::new(dir.path()).await.unwrap());
+    let local = Arc::new(LocalStorage::new(dir.path()).await.unwrap());
+    let router = Arc::new(StorageRouter::new(
+        StorageAppConfig::default(),
+        Some(local),
+        None,
+    ));
     let db = test_pool().await;
     let state = AppState {
         db: db.clone(),
-        storage: storage.clone(),
+        storage: router.clone(),
     };
     let app = Router::new()
         .route("/f/{file_id}", get(download_handler))
         .route("/share/{token}", get(share_link_handler))
         .route("/api/upload", post(upload_handler))
         .with_state(state);
-    (app, db, storage, dir)
+    (app, db, router, dir)
 }
 
 /// Builds a minimal `multipart/form-data` body with a single `file` field.
@@ -67,11 +72,13 @@ fn make_multipart(filename: &str, content_type: &str, data: &[u8]) -> (String, B
 
 #[tokio::test]
 async fn download_existing_file_returns_200_with_headers() {
-    let (app, db, storage, _dir) = setup().await;
+    let (app, db, router, _dir) = setup().await;
 
     let id = "aaaaaaaa-bb00-0000-0000-000000000001";
     insert_test_file(&db, id, "report.pdf", 7).await;
-    storage
+    router
+        .backend_for(BackendKind::Local)
+        .unwrap()
         .put(id, Bytes::from("PDF content here"))
         .await
         .unwrap();
@@ -106,11 +113,16 @@ async fn download_existing_file_returns_200_with_headers() {
 
 #[tokio::test]
 async fn download_expired_file_returns_404() {
-    let (app, db, storage, _dir) = setup().await;
+    let (app, db, router, _dir) = setup().await;
 
     let id = "aaaaaaaa-bb00-0000-0000-000000000002";
     insert_test_file(&db, id, "stale.txt", -1).await; // expired yesterday
-    storage.put(id, Bytes::from("old data")).await.unwrap();
+    router
+        .backend_for(BackendKind::Local)
+        .unwrap()
+        .put(id, Bytes::from("old data"))
+        .await
+        .unwrap();
 
     let resp = app
         .oneshot(
@@ -127,7 +139,7 @@ async fn download_expired_file_returns_404() {
 
 #[tokio::test]
 async fn download_unknown_id_returns_404() {
-    let (app, _db, _storage, _dir) = setup().await;
+    let (app, _db, _router, _dir) = setup().await;
 
     let id = uuid::Uuid::new_v4();
     let resp = app
@@ -147,7 +159,7 @@ async fn download_unknown_id_returns_404() {
 
 #[tokio::test]
 async fn share_link_valid_token_redirects_to_download_page() {
-    let (app, db, _storage, _dir) = setup().await;
+    let (app, db, _router, _dir) = setup().await;
 
     let file_id = "aaaaaaaa-bb00-0000-0000-000000000003";
     insert_test_file(&db, file_id, "shared.zip", 7).await;
@@ -192,7 +204,7 @@ async fn share_link_valid_token_redirects_to_download_page() {
 
 #[tokio::test]
 async fn share_link_expired_token_returns_404() {
-    let (app, db, _storage, _dir) = setup().await;
+    let (app, db, _router, _dir) = setup().await;
 
     let file_id = "aaaaaaaa-bb00-0000-0000-000000000004";
     insert_test_file(&db, file_id, "old.zip", 7).await;
@@ -225,7 +237,7 @@ async fn share_link_expired_token_returns_404() {
 
 #[tokio::test]
 async fn share_link_unknown_token_returns_404() {
-    let (app, _db, _storage, _dir) = setup().await;
+    let (app, _db, _router, _dir) = setup().await;
 
     let resp = app
         .oneshot(
@@ -244,7 +256,7 @@ async fn share_link_unknown_token_returns_404() {
 
 #[tokio::test]
 async fn upload_stores_file_and_returns_ok() {
-    let (app, _db, _storage, _dir) = setup().await;
+    let (app, _db, _router, _dir) = setup().await;
 
     let (ct, body) = make_multipart("hello.txt", "text/plain", b"hello world");
 
@@ -265,7 +277,7 @@ async fn upload_stores_file_and_returns_ok() {
 
 #[tokio::test]
 async fn upload_without_file_field_returns_400() {
-    let (app, _db, _storage, _dir) = setup().await;
+    let (app, _db, _router, _dir) = setup().await;
 
     // Send a multipart body with no `file` field — only an unrelated field.
     let boundary = "----TestBoundaryXYZ";
@@ -296,7 +308,7 @@ async fn upload_without_file_field_returns_400() {
 
 #[tokio::test]
 async fn upload_zero_byte_file_returns_ok() {
-    let (app, _db, _storage, _dir) = setup().await;
+    let (app, _db, _router, _dir) = setup().await;
 
     let (ct, body) = make_multipart("empty.bin", "application/octet-stream", b"");
 
