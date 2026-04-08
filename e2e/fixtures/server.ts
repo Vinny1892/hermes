@@ -66,7 +66,10 @@ export default async function setup() {
 
   // dx build outputs the binary + public/ together under target/dx/hermes/{profile}/web/
   const bundleDir = path.join(repoRoot, 'target', 'dx', 'hermes', profile, 'web');
-  const binaryPath = path.join(bundleDir, 'hermes');
+  // dx 0.7.5 names the server binary "server" instead of the crate name
+  const serverBin = path.join(bundleDir, 'server');
+  const hermesBin = path.join(bundleDir, 'hermes');
+  const binaryPath = require('fs').existsSync(serverBin) ? serverBin : hermesBin;
   const baseUrl = `http://127.0.0.1:${port}`;
 
   const child: ChildProcess = spawn(binaryPath, [], {
