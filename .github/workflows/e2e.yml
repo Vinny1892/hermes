@@ -21,8 +21,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Install dx CLI
-        run: curl -sSL https://dioxuslabs.com/install.sh | sh
-        shell: bash
+        run: curl -sSL https://dioxuslabs.com/install.sh | bash
 
       - name: Build release bundle (server + WASM frontend)
         run: dx build --platform web --release
@@ -48,7 +47,7 @@ jobs:
           path: target/dx/hermes/release/web
 
       - name: Make binary executable
-        run: chmod +x target/dx/hermes/release/web/hermes
+        run: chmod +x target/dx/hermes/release/web/server
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
