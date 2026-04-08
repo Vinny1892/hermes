@@ -107,14 +107,6 @@ pub enum QuotaBytes {
 }
 
 impl QuotaBytes {
-    /// Returns `Some(bytes)` or `None` for unlimited.
-    pub fn as_option(&self) -> Option<u64> {
-        match self {
-            QuotaBytes::Unlimited => None,
-            QuotaBytes::Bytes(n) => Some(*n),
-        }
-    }
-
     /// Format as a human-readable string suitable for display and round-trip
     /// through [`parse_quota_str`].
     pub fn to_human(&self) -> String {

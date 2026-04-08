@@ -78,7 +78,7 @@ pub fn Home() -> Element {
 
     let on_generate_link = move |_| {
         if let Some(ref resp) = *upload_result.read() {
-            let file_id = resp.file_id.clone();
+            let file_id = resp.file_id;
             spawn(async move {
                 match generate_share_link(file_id.to_string()).await {
                     Ok(res) => share_url.set(Some(res.share_url)),
@@ -327,6 +327,7 @@ fn WebRtcWidget(session_id: String) -> Element {
     let mut sender_connected = use_signal(|| false);
     let mut file_selected = use_signal(|| false);
     let mut full_receive_url = use_signal(|| "".to_string());
+    #[allow(unused_mut)]
     let mut is_dragging = use_signal(|| false);
 
     let receive_url = Route::Receive { session_id: session_id.to_string() }.to_string();

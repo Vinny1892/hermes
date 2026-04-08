@@ -9,6 +9,7 @@ use std::collections::HashMap;
 use dioxus::prelude::*;
 
 use crate::api::{get_app_config, set_app_config};
+#[allow(unused_imports)]
 use crate::app::Route;
 
 // Config key constants (mirrors server::config::keys — duplicated here to
@@ -53,10 +54,10 @@ fn format_bytes(b: u64) -> String {
     const MB: u64 = 1_024 * 1_024;
     const KB: u64 = 1_024;
     if b == 0                { "0 B".to_owned() }
-    else if b % TB == 0      { format!("{} TB", b / TB) }
-    else if b % GB == 0      { format!("{} GB", b / GB) }
-    else if b % MB == 0      { format!("{} MB", b / MB) }
-    else if b % KB == 0      { format!("{} KB", b / KB) }
+    else if b.is_multiple_of(TB) { format!("{} TB", b / TB) }
+    else if b.is_multiple_of(GB) { format!("{} GB", b / GB) }
+    else if b.is_multiple_of(MB) { format!("{} MB", b / MB) }
+    else if b.is_multiple_of(KB) { format!("{} KB", b / KB) }
     else if b >= TB          { format!("{:.2} TB", b as f64 / TB as f64) }
     else if b >= GB          { format!("{:.2} GB", b as f64 / GB as f64) }
     else if b >= MB          { format!("{:.2} MB", b as f64 / MB as f64) }
@@ -216,7 +217,7 @@ const SECTIONS: &[Section] = &[
 
 #[component]
 pub fn Settings() -> Element {
-    let nav = use_navigator();
+    let _nav = use_navigator();
 
     #[cfg(target_arch = "wasm32")]
     {
@@ -225,12 +226,12 @@ pub fn Settings() -> Element {
             .and_then(|s| s.get_item("hermes-role").ok().flatten())
             .unwrap_or_default();
         if role != "ADMIN" {
-            nav.push(Route::Home {});
+            _nav.push(Route::Home {});
             return rsx! { div {} };
         }
     }
 
-    let config_res = use_resource(move || get_app_config());
+    let config_res = use_resource(get_app_config);
     let mut edits: Signal<HashMap<String, String>> = use_signal(HashMap::new);
 
     use_effect(move || {
@@ -243,6 +244,7 @@ pub fn Settings() -> Element {
         }
     });
 
+    #[allow(unused_mut)]
     let mut save_state: Signal<HashMap<&'static str, Option<Result<(), String>>>> =
         use_signal(HashMap::new);
 

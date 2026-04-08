@@ -74,7 +74,7 @@ pub fn Login() -> Element {
         loading.set(true);
         error.set(None);
 
-        let nav = nav.clone();
+        let nav = nav;
         spawn(async move {
             match login_user(email_val, pass_val).await {
                 Ok(resp) => {

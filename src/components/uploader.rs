@@ -22,11 +22,12 @@ pub struct FileUploaderProps {
 pub fn FileUploader(props: FileUploaderProps) -> Element {
     let mut uploading = use_signal(|| false);
     let mut error_msg = use_signal(|| Option::<String>::None);
+    #[allow(unused_mut)]
     let mut is_dragging = use_signal(|| false);
 
     // Native drag-and-drop listener
     use_effect(move || {
-        let mut on_uploaded = props.on_uploaded.clone();
+        let _on_uploaded = props.on_uploaded;
         spawn(async move {
             #[cfg(target_arch = "wasm32")]
             {
@@ -85,7 +86,7 @@ pub fn FileUploader(props: FileUploaderProps) -> Element {
                         serde_json::Value::Object(map) => {
                             if let Some(ok) = map.get("ok") {
                                 if let Ok(resp) = serde_json::from_value::<UploadResponse>(ok.clone()) {
-                                    on_uploaded.call(resp);
+                                    _on_uploaded.call(resp);
                                 }
                             } else if let Some(err) = map.get("error").and_then(|v| v.as_str()) {
                                 error_msg.set(Some(err.to_string()));
@@ -114,7 +115,7 @@ pub fn FileUploader(props: FileUploaderProps) -> Element {
                     multiple: true,
                     style: "display:none",
                     onchange: move |_e| {
-                        let on_uploaded = props.on_uploaded.clone();
+                        let _on_uploaded = props.on_uploaded;
                         async move {
                             uploading.set(true);
                             error_msg.set(None);
@@ -137,7 +138,7 @@ pub fn FileUploader(props: FileUploaderProps) -> Element {
                                     if let serde_json::Value::Object(map) = msg {
                                         if let Some(ok) = map.get("ok") {
                                             if let Ok(resp) = serde_json::from_value::<UploadResponse>(ok.clone()) {
-                                                on_uploaded.call(resp);
+                                                _on_uploaded.call(resp);
                                             }
                                         }
                                     } else if msg == "done" {

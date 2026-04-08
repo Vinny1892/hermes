@@ -50,6 +50,7 @@ pub struct LoginResponse {
 
 /// Lightweight user info returned by `get_session_user`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct UserInfo {
     pub id: String,
     pub email: String,
