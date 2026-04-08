@@ -1,4 +1,4 @@
-name: E2E Tests
+name: CI
 
 on:
   push:
@@ -6,6 +6,24 @@ on:
   pull_request:
 
 jobs:
+  test:
+    name: Unit & integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --features server
+
+      - name: Clippy
+        run: cargo clippy --features server -- -D warnings
+
   build:
     name: Build Hermes binary
     runs-on: ubuntu-latest
